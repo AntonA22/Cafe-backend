@@ -2,31 +2,37 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
+     * Если таблица называется users — можно не указывать.
+     */
+    protected $table = 'users';
+
+    /**
+     * Массово заполняемые поля (под твою БД).
      */
     protected $fillable = [
-        'name',
+        'username',
         'email',
+        'phone',
+        'first_name',
+        'last_name',
         'password',
+        'is_staff',
+        'email_verified_at',
+        'phone_verified_at',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
+     * Скрывать при отдаче JSON.
      */
     protected $hidden = [
         'password',
@@ -34,15 +40,22 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Касты (типы).
      */
-    protected function casts(): array
+    protected $casts = [
+        'is_staff' => 'boolean',
+        'email_verified_at' => 'datetime',
+        'phone_verified_at' => 'datetime',
+        // если хочешь авто-хеширование при присваивании:
+        'password' => 'hashed',
+    ];
+
+    /**
+     * Удобный computed name (не обязательно)
+     */
+    public function getNameAttribute(): string
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        $full = trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+        return $full !== ''[elementary] ? $full : ($this->username ?? '');
     }
 }
