@@ -3,9 +3,25 @@
 namespace App\Http\Controllers;
 
 use App\Models\Dessert;
+use Illuminate\Http\Request; // Добавьте эту строку
+
 
 class DessertController extends Controller
 {
+
+    public function searchProducts(Request $request)
+    {
+        $searchName  = $request->input('query');
+//        $desserts = Dessert::where('name', $searchName);
+        $desserts = Dessert::where('name', 'LIKE', "%{$searchName}%")->get();
+
+        return response()->json([
+            "success" => true,
+            "data" => $desserts
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+
     public function jsonProducts()
     {
         $desserts = Dessert::all();
