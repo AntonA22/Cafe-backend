@@ -13,8 +13,10 @@ class DessertController extends Controller
     {
         $searchName  = $request->input('query');
 //        $desserts = Dessert::where('name', $searchName);
+if($searchName=='*') { $desserts = Dessert::all(); }
+else {
         $desserts = Dessert::where('name', 'LIKE', "%{$searchName}%")->get();
-
+}
         return response()->json([
             "success" => true,
             "data" => $desserts

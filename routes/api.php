@@ -5,6 +5,7 @@ use App\Http\Controllers\DessertController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MeController;
 use App\Http\Controllers\Api\CartController;
+use App\Http\Controllers\AddressController;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +38,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch ('/cart/items/{dessert}', [CartController::class, 'setQty']);    // изменить qty
     Route::delete('/cart/items/{dessert}', [CartController::class, 'remove']);    // удалить десерт
     Route::delete('/cart',                 [CartController::class, 'clear']);     // очистить корзину
+
+    Route::get('/addresses', [AddressController::class, 'index']);
+    Route::post('/addresses', [AddressController::class, 'store']);
+    Route::put('/addresses/{id}', [AddressController::class, 'update']);
+    Route::delete('/addresses/{id}', [AddressController::class, 'destroy']);
+
 });
 
 // Пример дополнительных маршрутов (по желанию)
