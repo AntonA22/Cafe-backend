@@ -9,9 +9,12 @@ class AddressController extends Controller
 {
     public function index(Request $request)
     {
-        $user = $request->user();
+        $userId = $request->user()->id;
 
-        return Address::where('user_id', $user->id)->get();
+        return Address::where('user_id', $userId)
+            ->orderByDesc('is_default')   // ✅ default сверху
+            ->orderBy('created_at')       // ✅ дальше стабильно
+            ->get();
     }
 
     public function store(Request $request)
@@ -52,5 +55,24 @@ class AddressController extends Controller
             ->delete();
 
         return response()->noContent();
+    }
+
+    public function setDefault(Request $request, $id)
+    {
+        $userId = $request->user()->id;
+
+        // 1) Сбрасываем у всех адресов пользователя default = false
+        Address::where('user_id', $userId)
+            ->update(['is_default' => false]);
+
+        // 2) Ставим нужному адресу default = true
+        $address = Address::where('user_id', $userId)
+            ->where('id', $id)
+            ->firstOrFail();
+
+        $address->is_default = true;
+        $address->save();
+
+        return response()->json($address);
     }
 }

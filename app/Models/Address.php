@@ -20,6 +20,7 @@ class Address extends Model
         'flat',
         'latitude',
         'longitude',
+        'is_default',
     ];
 
     protected static function booted()
