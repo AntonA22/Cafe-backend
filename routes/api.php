@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MeController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\AddressController;
+use App\Http\Controllers\OrderController;
 
 /*
 |--------------------------------------------------------------------------
@@ -44,6 +45,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/addresses/{id}', [AddressController::class, 'update']);
     Route::delete('/addresses/{id}', [AddressController::class, 'destroy']);
     Route::post('/addresses/{id}/default', [AddressController::class, 'setDefault']);
+
+    Route::get('/orders',            [OrderController::class, 'index']);   // список моих заказов
+    Route::get('/orders/{id}',       [OrderController::class, 'show']);    // один заказ
+    Route::post('/orders',           [OrderController::class, 'store']);   // создать заказ из корзины
+    Route::post('/orders/{id}/cancel',[OrderController::class, 'cancel']); // отменить (если можно)
 
 });
 
