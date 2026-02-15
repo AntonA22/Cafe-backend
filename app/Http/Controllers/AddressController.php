@@ -34,7 +34,10 @@ class AddressController extends Controller
 
         $address = Address::create($data);
 
-       return response()->json($address, 201);
+       return response()->json([
+        'success' => true,
+        'data' => $address,
+        ]);
     }
 
     public function update(Request $request, $id)
