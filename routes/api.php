@@ -8,6 +8,10 @@ use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\OrderController;
 
+use App\Http\Controllers\Admin\DessertAdminController;
+use App\Http\Controllers\Admin\OrderAdminController;
+use App\Http\Controllers\Admin\AddressAdminController;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -52,6 +56,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders/{id}/cancel',[OrderController::class, 'cancel']); // отменить (если можно)
 
 });
+
+Route::middleware(['auth:sanctum', 'admin'])
+  ->prefix('admin')
+  ->group(function () {
+      Route::get('/products/{id}', [DessertAdminController::class, 'show']);     // получить продукт
+      Route::put('/products/{id}', [DessertAdminController::class, 'update']);   // обновить поля
+
+      // фото лучше отдельным эндпоинтом
+      Route::post('/products/{id}/photo', [DessertAdminController::class, 'updatePhoto']);
+
+      Route::get('/addresses/{id}', [AddressAdminController::class, 'show']);
+
+      Route::get('/orders',            [OrderAdminController::class, 'index']);  // все заказы (с фильтрами)
+      Route::get('/orders/{id}',       [OrderAdminController::class, 'show']);   // один заказ
+      Route::patch('/orders/{id}/status', [OrderAdminController::class, 'setStatus']); // смена статуса
+  });
+
 
 // Пример дополнительных маршрутов (по желанию)
 // Route::get('/', function () {
