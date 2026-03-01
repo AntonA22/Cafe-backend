@@ -60,8 +60,10 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'admin'])
   ->prefix('admin')
   ->group(function () {
+      Route::post('/products', [DessertAdminController::class, 'store']);       // создать продукт
       Route::get('/products/{id}', [DessertAdminController::class, 'show']);     // получить продукт
       Route::put('/products/{id}', [DessertAdminController::class, 'update']);   // обновить поля
+      Route::delete('/products/{id}', [DessertAdminController::class, 'destroy']); // удалить продукт
 
       // фото лучше отдельным эндпоинтом
       Route::post('/products/{id}/photo', [DessertAdminController::class, 'updatePhoto']);

@@ -5,9 +5,25 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Dessert;
 use Illuminate\Http\Request;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 class DessertAdminController extends Controller
 {
+    /**
+     * POST /admin/products
+     */
+    public function store(Request $request)
+    {
+        $validated = $this->validateDessert($request, true);
+
+        $dessert = Dessert::create($validated);
+
+        return response()->json([
+            'success' => true,
+            'data' => $dessert,
+        ], 201, [], JSON_UNESCAPED_UNICODE);
+    }
+
     /**
      * GET /admin/products/{id}
      */
@@ -42,65 +58,8 @@ class DessertAdminController extends Controller
             ], 404, [], JSON_UNESCAPED_UNICODE);
         }
 
-        // 1) Сначала валидируем всё, кроме photos (его обработаем отдельно)
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'category' => 'sometimes|nullable|string|max:255',
-            'description' => 'sometimes|nullable|string',
+        $validated = $this->validateDessert($request, false);
 
-            'price' => 'sometimes|numeric|min:0',
-            'available' => 'sometimes|boolean',
-            'weight' => 'sometimes|numeric|min:0',
-
-            'calories' => 'sometimes|integer|min:0',
-            'proteins' => 'sometimes|numeric|min:0',
-            'fats' => 'sometimes|numeric|min:0',
-            'carbohydrates' => 'sometimes|numeric|min:0',
-
-            // photos может быть чем угодно (null/string/array) — нормализуем ниже
-            'photos' => 'sometimes|nullable',
-        ]);
-
-        // 2) Нормализация photos
-        if ($request->has('photos')) {
-            $photos = $request->input('photos');
-
-            if ($photos === null || $photos === '') {
-                // фоток нет — сохраняем пустой массив
-                $validated['photos'] = [];
-            } elseif (is_string($photos)) {
-                // строка может быть JSON-массивом, или одним URL
-                $decoded = json_decode($photos, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    $validated['photos'] = $decoded;
-                } else {
-                    $validated['photos'] = [$photos];
-                }
-            } elseif (is_array($photos)) {
-                $validated['photos'] = $photos;
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Invalid photos format',
-                ], 422, [], JSON_UNESCAPED_UNICODE);
-            }
-
-            // 3) Чистим массив: оставляем только непустые строки и ограничим длину
-            $validated['photos'] = array_values(array_filter($validated['photos'], function ($v) {
-                return is_string($v) && trim($v) !== '';
-            }));
-
-            foreach ($validated['photos'] as $p) {
-                if (mb_strlen($p) > 2048) {
-                    return response()->json([
-                        'success' => false,
-                        'error' => 'Each photo must be a string up to 2048 chars',
-                    ], 422, [], JSON_UNESCAPED_UNICODE);
-                }
-            }
-        }
-
-        // 4) Сохраняем
         $dessert->fill($validated);
         $dessert->save();
 
@@ -108,5 +67,86 @@ class DessertAdminController extends Controller
             'success' => true,
             'data' => $dessert->fresh(),
         ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * DELETE /admin/products/{id}
+     */
+    public function destroy($id)
+    {
+        $dessert = Dessert::find($id);
+
+        if (!$dessert) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Product not found',
+            ], 404, [], JSON_UNESCAPED_UNICODE);
+        }
+
+        $dessert->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product deleted',
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    private function validateDessert(Request $request, bool $isCreate): array
+    {
+        $validated = $request->validate([
+            'name' => [$isCreate ? 'required' : 'sometimes', 'string', 'max:255'],
+            'category' => [$isCreate ? 'required' : 'sometimes', 'nullable', 'string', 'max:255'],
+            'description' => [$isCreate ? 'required' : 'sometimes', 'nullable', 'string'],
+            'price' => [$isCreate ? 'required' : 'sometimes', 'numeric', 'min:0'],
+            'available' => 'sometimes|boolean',
+            'weight' => 'sometimes|nullable|numeric|min:0',
+            'calories' => 'sometimes|nullable|integer|min:0',
+            'proteins' => 'sometimes|nullable|numeric|min:0',
+            'fats' => 'sometimes|nullable|numeric|min:0',
+            'carbohydrates' => 'sometimes|nullable|numeric|min:0',
+            'photos' => 'sometimes|nullable',
+        ]);
+
+        if ($request->has('photos')) {
+            $validated['photos'] = $this->normalizePhotos($request->input('photos'));
+        }
+
+        return $validated;
+    }
+
+    private function normalizePhotos(mixed $photos): array
+    {
+        if ($photos === null || $photos === '') {
+            return [];
+        }
+
+        if (is_string($photos)) {
+            $decoded = json_decode($photos, true);
+            $photos = json_last_error() === JSON_ERROR_NONE && is_array($decoded)
+                ? $decoded
+                : [$photos];
+        }
+
+        if (!is_array($photos)) {
+            throw new HttpResponseException(response()->json([
+                'success' => false,
+                'error' => 'Invalid photos format',
+            ], 422, [], JSON_UNESCAPED_UNICODE));
+        }
+
+        $photos = array_values(array_filter($photos, function ($value) {
+            return is_string($value) && trim($value) !== '';
+        }));
+
+        foreach ($photos as $photo) {
+            if (mb_strlen($photo) > 2048) {
+                throw new HttpResponseException(response()->json([
+                    'success' => false,
+                    'error' => 'Each photo must be a string up to 2048 chars',
+                ], 422, [], JSON_UNESCAPED_UNICODE));
+            }
+        }
+
+        return $photos;
     }
 }
