@@ -97,6 +97,7 @@ class DessertAdminController extends Controller
             'name' => [$isCreate ? 'required' : 'sometimes', 'string', 'max:255'],
             'category' => [$isCreate ? 'required' : 'sometimes', 'nullable', 'string', 'max:255'],
             'description' => [$isCreate ? 'required' : 'sometimes', 'nullable', 'string'],
+            'composition' => [$isCreate ? 'required' : 'sometimes', 'nullable', 'string'],
             'price' => [$isCreate ? 'required' : 'sometimes', 'numeric', 'min:0'],
             'available' => 'sometimes|boolean',
             'weight' => 'sometimes|nullable|numeric|min:0',

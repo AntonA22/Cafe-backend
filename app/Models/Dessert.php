@@ -9,7 +9,7 @@ class Dessert extends Model
     protected $table = 'desserts';
 
     protected $fillable = [
-        'name', 'category', 'description', 'price', 'photos',
+        'name', 'category', 'description', 'composition', 'price', 'photos',
         'available', 'weight', 'calories', 'proteins', 'fats', 'carbohydrates'
     ];
 
