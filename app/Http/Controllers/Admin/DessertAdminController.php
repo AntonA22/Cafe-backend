@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Dessert;
+use App\Models\OrderItem;
 use Illuminate\Http\Request;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
@@ -81,6 +82,15 @@ class DessertAdminController extends Controller
                 'success' => false,
                 'error' => 'Product not found',
             ], 404, [], JSON_UNESCAPED_UNICODE);
+        }
+
+        // Не удаляем десерты, которые уже попали в заказы:
+        // иначе теряется состав исторических заказов.
+        if (OrderItem::where('dessert_id', $dessert->id)->exists()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Нельзя удалить товар, который уже есть в заказах. Снимите его с продажи через available=false.',
+            ], 409, [], JSON_UNESCAPED_UNICODE);
         }
 
         $dessert->delete();
