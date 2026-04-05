@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MeController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\AddressController;
+use App\Http\Controllers\FcmTokenController;
 use App\Http\Controllers\OrderController;
 
 use App\Http\Controllers\Admin\DessertAdminController;
@@ -34,6 +35,7 @@ Route::post('/auth/login',    [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::post('/me/fcm-token', [FcmTokenController::class, 'update']);
     Route::get('/me',           [MeController::class, 'show']);
     Route::put('/me/update',           [MeController::class, 'update']);
     Route::put('/me/password',  [MeController::class, 'changePassword']);

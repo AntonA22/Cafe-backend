@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\FirebaseNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -80,7 +81,7 @@ class OrderAdminController extends Controller
      */
     public function setStatus(Request $request, $id)
     {
-        $order = Order::find($id);
+        $order = Order::with('user')->find($id);
 
         if (!$order) {
             return response()->json([
@@ -123,6 +124,15 @@ class OrderAdminController extends Controller
 
         $order->status = $newStatus;
         $order->save();
+
+        $fcmToken = $order->user?->fcm_token;
+        if ($fcmToken) {
+            app(FirebaseNotificationService::class)->sendOrderStatusUpdate(
+                $fcmToken,
+                $order->id,
+                $newStatus
+            );
+        }
 
         return response()->json([
             'success' => true,

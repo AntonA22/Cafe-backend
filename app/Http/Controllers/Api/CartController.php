@@ -89,6 +89,6 @@ class CartController extends Controller
 
         $cart->items()->delete();
 
-        return response()->json(['success' => true]);
+        return new CartResource($cart->load('items.dessert'));
     }
 }
