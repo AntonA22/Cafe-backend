@@ -31,6 +31,12 @@ class CartController extends Controller
         $cart = $this->userCart($request);
 
         $dessert = Dessert::findOrFail($request->dessert_id);
+        if (!$dessert->available) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Этот товар сейчас недоступен для заказа.',
+            ], 409);
+        }
 
         $item = $cart->items()->where('dessert_id', $dessert->id)->first();
 
@@ -52,6 +58,13 @@ class CartController extends Controller
     public function setQty(CartSetQtyRequest $request, Dessert $dessert)
     {
         $cart = $this->userCart($request);
+
+        if (!$dessert->available && $request->qty > 0) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Этот товар сейчас недоступен для заказа.',
+            ], 409);
+        }
 
         $item = $cart->items()->where('dessert_id', $dessert->id)->first();
 

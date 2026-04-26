@@ -27,10 +27,6 @@ class MeController extends Controller
     {
         $user = $request->user();
 
-        if (!Hash::check($request->current_password, $user->password)) {
-            return response()->json(['message' => 'Wrong current password'], 422);
-        }
-
         $user->password = Hash::make($request->new_password);
         $user->save();
 

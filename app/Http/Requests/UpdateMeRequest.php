@@ -31,9 +31,14 @@ class UpdateMeRequest extends FormRequest
                 Rule::unique('users', 'email')->ignore($userId),
             ],
 
+            'phone' => [
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('users', 'phone')->ignore($userId),
+            ],
             'first_name' => ['nullable', 'string', 'max:100'],
             'last_name'  => ['nullable', 'string', 'max:100'],
-            'phone'      => ['nullable', 'string', 'max:20'],
         ];
     }
 
@@ -51,6 +56,7 @@ class UpdateMeRequest extends FormRequest
             'first_name.string' => 'Имя должно быть строкой',
             'last_name.string'  => 'Фамилия должна быть строкой',
             'phone.string'      => 'Телефон должен быть строкой',
+            'phone.unique'      => 'Этот телефон уже используется',
         ];
     }
 }

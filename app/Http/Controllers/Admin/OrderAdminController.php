@@ -10,9 +10,6 @@ use Illuminate\Validation\Rule;
 
 class OrderAdminController extends Controller
 {
-    // Единый список статусов (как в iOS)
-    private const STATUSES = ['new', 'processing', 'shipped', 'delivered', 'cancelled'];
-
     /**
      * GET /admin/orders?status=...&user_id=...&q=...&per_page=20
      */
@@ -23,14 +20,14 @@ class OrderAdminController extends Controller
 
         // Можно валидировать фильтры, чтобы не ловить мусор
         $request->validate([
-            'status' => ['sometimes', 'string', Rule::in(self::STATUSES)],
+            'status' => ['sometimes', 'string', Rule::in(Order::STATUSES)],
             'user_id' => ['sometimes'],
             'q' => ['sometimes', 'string', 'max:255'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
 
         $orders = Order::query()
-            ->with(['user', 'items.dessert'])
+            ->with(['user', 'items.dessert', 'address'])
             ->when($request->filled('status'), function ($q) use ($request) {
                 $q->where('status', $request->query('status'));
             })
@@ -60,7 +57,7 @@ class OrderAdminController extends Controller
     public function show($id)
     {
         $order = Order::query()
-            ->with(['user', 'items.dessert'])
+            ->with(['user', 'items.dessert', 'address'])
             ->find($id);
 
         if (!$order) {
@@ -91,11 +88,11 @@ class OrderAdminController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => ['required', 'string', Rule::in(self::STATUSES)],
+            'status' => ['required', 'string', Rule::in(Order::STATUSES)],
         ]);
 
         // Опционально: запрещаем менять завершённые
-        if (in_array($order->status, ['delivered', 'cancelled'], true)) {
+        if (in_array($order->status, [Order::STATUS_DELIVERED, Order::STATUS_CANCELLED], true)) {
             return response()->json([
                 'success' => false,
                 'error' => 'Cannot change status of delivered/cancelled order',
@@ -106,11 +103,11 @@ class OrderAdminController extends Controller
         // Пример порядка: new -> processing -> shipped -> delivered
         // cancelled можно из любого "актуального"
         $allowedTransitions = [
-            'new' => ['processing', 'shipped', 'delivered', 'cancelled'],
-            'processing' => ['shipped', 'delivered', 'cancelled'],
-            'shipped' => ['delivered', 'cancelled'],
-            'delivered' => [],
-            'cancelled' => [],
+            Order::STATUS_NEW => [Order::STATUS_PROCESSING, Order::STATUS_CANCELLED],
+            Order::STATUS_PROCESSING => [Order::STATUS_SHIPPED, Order::STATUS_CANCELLED],
+            Order::STATUS_SHIPPED => [Order::STATUS_DELIVERED],
+            Order::STATUS_DELIVERED => [],
+            Order::STATUS_CANCELLED => [],
         ];
 
         $newStatus = $validated['status'];

@@ -57,6 +57,6 @@ class User extends Authenticatable
     public function getNameAttribute(): string
     {
         $full = trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
-        return $full !== ''[elementary] ? $full : ($this->username ?? '');
+        return $full !== '' ? $full : ($this->username ?? '');
     }
 }

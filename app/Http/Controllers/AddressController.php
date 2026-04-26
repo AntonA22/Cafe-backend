@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Address;
+use Illuminate\Support\Facades\DB;
 
 class AddressController extends Controller
 {
@@ -30,11 +31,16 @@ class AddressController extends Controller
             'longitude' => 'required|numeric',
         ]);
 
-        $data['user_id'] = $request->user()->id;
+        $shouldBecomeDefault = !Address::where('user_id', $request->user()->id)->exists();
 
-        $address = Address::create($data);
+        $address = new Address($data);
+        $address->user()->associate($request->user());
+        if ($shouldBecomeDefault) {
+            $address->is_default = true;
+        }
+        $address->save();
 
-       return response()->json($address, 201);
+        return response()->json($address, 201);
     }
 
     public function update(Request $request, $id)
@@ -43,16 +49,40 @@ class AddressController extends Controller
             ->where('id', $id)
             ->firstOrFail();
 
-        $address->update($request->all());
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string',
+            'base_address' => 'sometimes|required|string',
+            'entrance' => 'nullable|string',
+            'intercom' => 'nullable|string',
+            'floor' => 'nullable|string',
+            'flat' => 'nullable|string',
+            'latitude' => 'sometimes|required|numeric',
+            'longitude' => 'sometimes|required|numeric',
+        ]);
+
+        $address->fill($validated);
+        $address->save();
 
         return response()->json($address);
     }
 
     public function destroy(Request $request, $id)
     {
-        Address::where('user_id', $request->user()->id)
-            ->where('id', $id)
-            ->delete();
+        DB::transaction(function () use ($request, $id) {
+            $address = Address::where('user_id', $request->user()->id)
+                ->where('id', $id)
+                ->firstOrFail();
+
+            $wasDefault = $address->is_default;
+            $address->delete();
+
+            if ($wasDefault) {
+                Address::where('user_id', $request->user()->id)
+                    ->orderBy('created_at')
+                    ->limit(1)
+                    ->update(['is_default' => true]);
+            }
+        });
 
         return response()->noContent();
     }
@@ -61,17 +91,19 @@ class AddressController extends Controller
     {
         $userId = $request->user()->id;
 
-        // 1) Сбрасываем у всех адресов пользователя default = false
-        Address::where('user_id', $userId)
-            ->update(['is_default' => false]);
+        $address = DB::transaction(function () use ($userId, $id) {
+            Address::where('user_id', $userId)
+                ->update(['is_default' => false]);
 
-        // 2) Ставим нужному адресу default = true
-        $address = Address::where('user_id', $userId)
-            ->where('id', $id)
-            ->firstOrFail();
+            $address = Address::where('user_id', $userId)
+                ->where('id', $id)
+                ->firstOrFail();
 
-        $address->is_default = true;
-        $address->save();
+            $address->is_default = true;
+            $address->save();
+
+            return $address;
+        });
 
         return response()->json($address);
     }

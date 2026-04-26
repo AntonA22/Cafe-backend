@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Mail\ForgotPasswordTemporaryPasswordMail;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -15,6 +19,7 @@ class AuthController extends Controller
         $user = User::create([
             'email'      => $request->email,
             'username'   => $request->username,
+            'phone'      => $request->phone,
             'first_name' => $request->first_name,
             'last_name'  => $request->last_name,
             'password'   => Hash::make($request->password),
@@ -60,5 +65,37 @@ class AuthController extends Controller
         request()->user()->currentAccessToken()->delete();
 
         return response()->noContent();
+    }
+
+    public function forgotPassword(ForgotPasswordRequest $request)
+    {
+        $email = $request->string('email')->lower()->toString();
+
+        $user = User::query()
+            ->where('email', $email)
+            ->first();
+
+        // Не раскрываем, существует ли аккаунт с таким email.
+        if (!$user) {
+            return response()->json([
+                'message' => 'If an account with this email exists, a temporary password has been sent.'
+            ]);
+        }
+
+        $temporaryPassword = Str::password(10, true, true, false, false);
+
+        $user->password = Hash::make($temporaryPassword);
+        $user->save();
+
+        // После сброса лучше завершить все активные сессии.
+        $user->tokens()->delete();
+
+        Mail::to($user->email)->send(
+            new ForgotPasswordTemporaryPasswordMail($temporaryPassword)
+        );
+
+        return response()->json([
+            'message' => 'If an account with this email exists, a temporary password has been sent.'
+        ]);
     }
 }

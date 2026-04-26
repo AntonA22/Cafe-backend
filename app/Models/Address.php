@@ -11,7 +11,6 @@ class Address extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'user_id',
         'title',
         'base_address',
         'entrance',
@@ -20,7 +19,6 @@ class Address extends Model
         'flat',
         'latitude',
         'longitude',
-        'is_default',
     ];
 
     protected static function booted()
@@ -38,7 +36,8 @@ class Address extends Model
     }
 
     protected $casts = [
-    'latitude' => 'float',
-    'longitude' => 'float',
-];
+        'latitude' => 'float',
+        'longitude' => 'float',
+        'is_default' => 'boolean',
+    ];
 }
