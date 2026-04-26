@@ -26,12 +26,14 @@ use App\Http\Controllers\Admin\AddressAdminController;
 // Маршрут для получения всех десертов в формате JSON
 Route::get('/products', [DessertController::class, 'jsonProducts']);
 Route::get('/product/{id}', [DessertController::class, 'jsonProduct']);
+Route::get('/image-proxy', [DessertController::class, 'imageProxy'])->name('image.proxy');
 
 Route::get('/products/search', [DessertController::class, 'searchProducts']);
 
 
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login',    [AuthController::class, 'login']);
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);

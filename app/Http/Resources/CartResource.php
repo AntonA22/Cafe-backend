@@ -2,19 +2,23 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\Concerns\ProxiesDessertPhotos;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class CartResource extends JsonResource
 {
+    use ProxiesDessertPhotos;
+
     public function toArray(Request $request): array
     {
         $items = $this->items ?? collect();
+        $proxyBaseUrl = $this->proxyBaseUrl();
 
         return [
             'id' => $this->id,
             'user_id' => $this->user_id,
-            'items' => $items->map(function ($item) {
+            'items' => $items->map(function ($item) use ($proxyBaseUrl) {
                 $dessert = $item->dessert;
 
                 return [
@@ -27,7 +31,7 @@ class CartResource extends JsonResource
                         'id' => $dessert->id,
                         'name' => $dessert->name,
                         'description' => $dessert->description,
-                        'photos' => $dessert->photos,
+                        'photos' => $this->proxiedPhotos($dessert->photos, $proxyBaseUrl),
                     ] : null,
                 ];
             })->values(),

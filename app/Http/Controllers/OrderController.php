@@ -3,14 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Address;
 use App\Models\Cart;
+use App\Models\Dessert;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\User;
+use App\Http\Resources\OrderResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
 {
+    private const FREE_DELIVERY_THRESHOLD = 1200;
+    private const STANDARD_DELIVERY_FEE = 149;
+
     private function userCart(Request $request): Cart
     {
         return Cart::firstOrCreate([
@@ -29,7 +38,7 @@ class OrderController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $orders,
+            'data' => OrderResource::collection($orders),
         ]);
     }
 
@@ -43,7 +52,7 @@ class OrderController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $order,
+            'data' => new OrderResource($order),
         ]);
     }
 
@@ -51,12 +60,12 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'address_id'    => ['required'],          // если uuid: добавь 'uuid'
+            'address_id'    => ['nullable', 'uuid'],
             'comment'       => ['nullable','string','max:500'],
-            'payment_mode'  => ['nullable','string'], // card/cash
-            'delivery_mode' => ['nullable','string'], // delivery/pickup
-            'leave_at_door' => ['nullable','boolean'],
-            'phone'         => ['nullable','string','max:50'],
+            'payment_mode'  => ['required', 'string', Rule::in(Order::PAYMENT_MODES)],
+            'delivery_mode' => ['required', 'string', Rule::in(Order::DELIVERY_MODES)],
+            'leave_at_door' => ['sometimes','boolean'],
+            'phone'         => ['required','string','max:50'],
         ]);
 
         $cart = $this->userCart($request)->load('items.dessert');
@@ -69,33 +78,42 @@ class OrderController extends Controller
         }
 
         return DB::transaction(function () use ($request, $data, $cart) {
-
             $itemsCount = 0;
-            $total = 0;
+            $subtotal = 0;
+            $deliveryMode = $data['delivery_mode'];
+            $address = $this->resolveOrderAddress($request, $deliveryMode, $data['address_id'] ?? null);
+            $phone = trim($data['phone']);
+            $leaveAtDoor = $deliveryMode === Order::DELIVERY_MODE_DELIVERY
+                ? (bool) ($data['leave_at_door'] ?? false)
+                : false;
 
             $order = Order::create([
                 'user_id'     => $request->user()->id,
-                'address_id'  => $data['address_id'],
-                'status'      => 'new',
+                'address_id'  => $address?->id,
+                'status'      => Order::STATUS_NEW,
                 'items_count' => 0,
+                'subtotal_price' => 0,
+                'delivery_fee' => 0,
                 'total_price' => 0,
                 'comment'     => $data['comment'] ?? null,
-
-                // если в orders таблице нет этих полей — удали строки ниже
-                // 'payment_mode'  => $data['payment_mode'] ?? null,
-                // 'delivery_mode' => $data['delivery_mode'] ?? null,
-                // 'leave_at_door' => $data['leave_at_door'] ?? null,
-                // 'phone'         => $data['phone'] ?? null,
+                'payment_mode' => $data['payment_mode'],
+                'delivery_mode' => $deliveryMode,
+                'leave_at_door' => $leaveAtDoor,
+                'customer_phone' => $phone,
             ]);
 
             foreach ($cart->items as $item) {
                 $qty = (int) $item->qty;
+                $dessert = $item->dessert;
 
-                // У тебя в cart_item хранится price (фиксируешь при добавлении)
-                $price = (int) $item->price;
+                if (!$dessert instanceof Dessert || !$dessert->available) {
+                    throw new HttpResponseException(response()->json([
+                        'success' => false,
+                        'error' => 'Один или несколько товаров в корзине больше недоступны для заказа.',
+                    ], 409));
+                }
 
-                // Если хочешь брать актуальную цену десерта, то:
-                // $price = (int) $item->dessert->price;
+                $price = $this->normalizeMoney($item->price);
 
                 $sum = $price * $qty;
 
@@ -108,12 +126,16 @@ class OrderController extends Controller
                 ]);
 
                 $itemsCount += $qty;
-                $total += $sum;
+                $subtotal += $sum;
             }
+
+            $deliveryFee = $this->deliveryFeeFor($subtotal, $deliveryMode);
 
             $order->update([
                 'items_count' => $itemsCount,
-                'total_price' => $total,
+                'subtotal_price' => $subtotal,
+                'delivery_fee' => $deliveryFee,
+                'total_price' => $subtotal + $deliveryFee,
             ]);
 
             // очищаем корзину
@@ -121,9 +143,19 @@ class OrderController extends Controller
 
             $order->load(['items.dessert', 'address']);
 
+            $user = $request->user();
+            $phoneTakenByAnotherUser = User::query()
+                ->where('phone', $phone)
+                ->where('id', '!=', $user->id)
+                ->exists();
+
+            if (($user->phone ?? null) !== $phone && !$phoneTakenByAnotherUser) {
+                $user->forceFill(['phone' => $phone])->save();
+            }
+
             return response()->json([
                 'success' => true,
-                'data' => $order,
+                'data' => new OrderResource($order),
             ], 201);
         });
     }
@@ -135,18 +167,62 @@ class OrderController extends Controller
             ->where('user_id', $request->user()->id)
             ->findOrFail($id);
 
-        if (!in_array($order->status, ['new', 'paid'])) {
+        if (!in_array($order->status, [Order::STATUS_NEW, Order::STATUS_PROCESSING], true)) {
             return response()->json([
                 'success' => false,
                 'error' => 'Этот заказ уже нельзя отменить',
             ], 422);
         }
 
-        $order->update(['status' => 'canceled']);
+        $order->update(['status' => Order::STATUS_CANCELLED]);
+        $order->load(['items.dessert', 'address']);
 
         return response()->json([
             'success' => true,
-            'data' => $order,
+            'data' => new OrderResource($order),
         ]);
+    }
+
+    private function normalizeMoney(mixed $value): int
+    {
+        return (int) round((float) $value);
+    }
+
+    private function deliveryFeeFor(int $subtotal, string $deliveryMode): int
+    {
+        if ($deliveryMode !== Order::DELIVERY_MODE_DELIVERY) {
+            return 0;
+        }
+
+        return $subtotal >= self::FREE_DELIVERY_THRESHOLD
+            ? 0
+            : self::STANDARD_DELIVERY_FEE;
+    }
+
+    private function resolveOrderAddress(Request $request, string $deliveryMode, ?string $addressId): ?Address
+    {
+        if ($deliveryMode === Order::DELIVERY_MODE_PICKUP) {
+            return null;
+        }
+
+        if (!$addressId) {
+            throw new HttpResponseException(response()->json([
+                'success' => false,
+                'error' => 'Для доставки нужен адрес.',
+            ], 422));
+        }
+
+        $address = Address::query()
+            ->where('user_id', $request->user()->id)
+            ->find($addressId);
+
+        if (!$address) {
+            throw new HttpResponseException(response()->json([
+                'success' => false,
+                'error' => 'Адрес доставки не найден.',
+            ], 422));
+        }
+
+        return $address;
     }
 }
