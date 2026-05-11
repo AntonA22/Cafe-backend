@@ -1,0 +1,208 @@
+erDiagram
+  addresses {
+    string id PK
+    int user_id
+    string title
+    string base_address
+    string entrance
+    string intercom
+    string floor
+    string flat
+    float latitude
+    float longitude
+    datetime created_at
+    datetime updated_at
+    boolean is_default
+  }
+  cache {
+    string key PK
+    string value
+    int expiration
+  }
+  cache_locks {
+    string key PK
+    string owner
+    int expiration
+  }
+  cake_designs {
+    int id PK
+    string slug
+    string name
+    string subtitle
+    string image_path
+    string filling
+    string accent
+    string composition
+    string storage
+    int weight_grams
+    float price
+    int calories_per_100g
+    string recommended_text
+    boolean available
+    int sort_order
+    datetime created_at
+    datetime updated_at
+    string image_url
+    json photos
+  }
+  cart_items {
+    int id PK
+    int cart_id
+    int dessert_id
+    int qty
+    int price
+    datetime created_at
+    datetime updated_at
+  }
+  carts {
+    int id PK
+    int user_id
+    datetime created_at
+    datetime updated_at
+  }
+  desserts {
+    int id PK
+    string name
+    string category
+    string description
+    float price
+    json photos
+    boolean available
+    float weight
+    int calories
+    float proteins
+    float fats
+    float carbohydrates
+    datetime created_at
+    datetime updated_at
+    string composition
+  }
+  failed_jobs {
+    int id PK
+    string uuid
+    string connection
+    string queue
+    string payload
+    string exception
+    datetime failed_at
+  }
+  job_batches {
+    string id PK
+    string name
+    int total_jobs
+    int pending_jobs
+    int failed_jobs
+    string failed_job_ids
+    string options
+    int cancelled_at
+    int created_at
+    int finished_at
+  }
+  jobs {
+    int id PK
+    string queue
+    string payload
+    int attempts
+    int reserved_at
+    int available_at
+    int created_at
+  }
+  migrations {
+    int id PK
+    string migration
+    int batch
+  }
+  order_items {
+    int id PK
+    string order_id
+    int dessert_id
+    int qty
+    int price
+    int sum
+    datetime created_at
+    datetime updated_at
+  }
+  orders {
+    string id PK
+    int user_id
+    string address_id
+    string status
+    int items_count
+    int total_price
+    string comment
+    datetime created_at
+    datetime updated_at
+    int subtotal_price
+    int delivery_fee
+    string delivery_mode
+    string payment_mode
+    boolean leave_at_door
+    string customer_phone
+  }
+  password_reset_tokens {
+    string email PK
+    string token
+    datetime created_at
+  }
+  personal_access_tokens {
+    int id PK
+    string tokenable_type
+    int tokenable_id
+    string name
+    string token
+    string abilities
+    datetime last_used_at
+    datetime expires_at
+    datetime created_at
+    datetime updated_at
+  }
+  sessions {
+    string id PK
+    int user_id
+    string ip_address
+    string user_agent
+    string payload
+    int last_activity
+  }
+  telescope_entries {
+    int sequence PK
+    string uuid
+    string batch_id
+    string family_hash
+    boolean should_display_on_index
+    string type
+    string content
+    datetime created_at
+  }
+  telescope_entries_tags {
+    string entry_uuid PK
+    string tag PK
+  }
+  telescope_monitoring {
+    string tag PK
+  }
+  users {
+    int id PK
+    string username
+    string email
+    string phone
+    string first_name
+    string last_name
+    boolean is_staff
+    datetime email_verified_at
+    datetime phone_verified_at
+    string password
+    string remember_token
+    datetime created_at
+    datetime updated_at
+    string fcm_token
+  }
+  users ||--o{ addresses : "id->user_id"
+  carts ||--o{ cart_items : "id->cart_id"
+  desserts ||--o{ cart_items : "id->dessert_id"
+  users ||--o{ carts : "id->user_id"
+  desserts ||--o{ order_items : "id->dessert_id"
+  orders ||--o{ order_items : "id->order_id"
+  addresses ||--o{ orders : "id->address_id"
+  users ||--o{ orders : "id->user_id"
+  telescope_entries ||--o{ telescope_entries_tags : "uuid->entry_uuid"

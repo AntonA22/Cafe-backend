@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
         ]);
         $this->call([
             DessertsTableSeeder::class,
+            CakeDesignsSeeder::class,
         ]);
     }
 }

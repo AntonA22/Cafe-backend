@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Address;
+use App\Models\CakeDesign;
 use App\Models\Cart;
 use App\Models\Dessert;
 use App\Models\Order;
@@ -66,18 +67,30 @@ class OrderController extends Controller
             'delivery_mode' => ['required', 'string', Rule::in(Order::DELIVERY_MODES)],
             'leave_at_door' => ['sometimes','boolean'],
             'phone'         => ['required','string','max:50'],
+            'custom_cake' => ['sometimes', 'array'],
+            'custom_cake.design_id' => ['required_with:custom_cake', 'string', 'max:255'],
+            'custom_cake.design_name' => ['required_with:custom_cake', 'string', 'max:255'],
+            'custom_cake.weight_title' => ['required_with:custom_cake', 'string', 'max:50'],
+            'custom_cake.weight_grams' => ['required_with:custom_cake', 'integer', 'min:1'],
+            'custom_cake.inscription' => ['nullable', 'string', 'max:255'],
+            'custom_cake.wishes' => ['nullable', 'string', 'max:500'],
+            'custom_cake.filling' => ['nullable', 'string', 'max:1000'],
+            'custom_cake.accent' => ['nullable', 'string', 'max:1000'],
+            'custom_cake.composition' => ['nullable', 'string', 'max:2000'],
+            'custom_cake.preview_image_base64' => ['nullable', 'string'],
         ]);
 
-        $cart = $this->userCart($request)->load('items.dessert');
+        $customCake = $data['custom_cake'] ?? null;
+        $cart = $customCake ? null : $this->userCart($request)->load('items.dessert');
 
-        if ($cart->items->isEmpty()) {
+        if (!$customCake && $cart->items->isEmpty()) {
             return response()->json([
                 'success' => false,
                 'error' => 'Корзина пустая',
             ], 422);
         }
 
-        return DB::transaction(function () use ($request, $data, $cart) {
+        return DB::transaction(function () use ($request, $data, $cart, $customCake) {
             $itemsCount = 0;
             $subtotal = 0;
             $deliveryMode = $data['delivery_mode'];
@@ -102,31 +115,47 @@ class OrderController extends Controller
                 'customer_phone' => $phone,
             ]);
 
-            foreach ($cart->items as $item) {
-                $qty = (int) $item->qty;
-                $dessert = $item->dessert;
-
-                if (!$dessert instanceof Dessert || !$dessert->available) {
-                    throw new HttpResponseException(response()->json([
-                        'success' => false,
-                        'error' => 'Один или несколько товаров в корзине больше недоступны для заказа.',
-                    ], 409));
-                }
-
-                $price = $this->normalizeMoney($item->price);
-
-                $sum = $price * $qty;
+            if ($customCake) {
+                $dessert = $this->createCustomCakeDessert($customCake);
+                $price = $this->customCakePrice($customCake);
 
                 OrderItem::create([
                     'order_id'   => $order->id,
-                    'dessert_id' => $item->dessert_id,
-                    'qty'        => $qty,
+                    'dessert_id' => $dessert->id,
+                    'qty'        => 1,
                     'price'      => $price,
-                    'sum'        => $sum,
+                    'sum'        => $price,
                 ]);
 
-                $itemsCount += $qty;
-                $subtotal += $sum;
+                $itemsCount = 1;
+                $subtotal = $price;
+            } else {
+                foreach ($cart->items as $item) {
+                    $qty = (int) $item->qty;
+                    $dessert = $item->dessert;
+
+                    if (!$dessert instanceof Dessert || !$dessert->available) {
+                        throw new HttpResponseException(response()->json([
+                            'success' => false,
+                            'error' => 'Один или несколько товаров в корзине больше недоступны для заказа.',
+                        ], 409));
+                    }
+
+                    $price = $this->normalizeMoney($item->price);
+
+                    $sum = $price * $qty;
+
+                    OrderItem::create([
+                        'order_id'   => $order->id,
+                        'dessert_id' => $item->dessert_id,
+                        'qty'        => $qty,
+                        'price'      => $price,
+                        'sum'        => $sum,
+                    ]);
+
+                    $itemsCount += $qty;
+                    $subtotal += $sum;
+                }
             }
 
             $deliveryFee = $this->deliveryFeeFor($subtotal, $deliveryMode);
@@ -138,8 +167,9 @@ class OrderController extends Controller
                 'total_price' => $subtotal + $deliveryFee,
             ]);
 
-            // очищаем корзину
-            $cart->items()->delete();
+            if ($cart) {
+                $cart->items()->delete();
+            }
 
             $order->load(['items.dessert', 'address']);
 
@@ -186,6 +216,63 @@ class OrderController extends Controller
     private function normalizeMoney(mixed $value): int
     {
         return (int) round((float) $value);
+    }
+
+    private function customCakePrice(array $customCake): int
+    {
+        $design = CakeDesign::query()
+            ->where('slug', $customCake['design_id'])
+            ->where('available', true)
+            ->first();
+
+        if ($design) {
+            return $this->normalizeMoney($design->price);
+        }
+
+        $pricePerKg = 0;
+        if (!empty($customCake['weight_grams'])) {
+            $pricePerKg = 2500;
+        }
+
+        return (int) round($pricePerKg * ((int) $customCake['weight_grams'] / 1000));
+    }
+
+    private function createCustomCakeDessert(array $customCake): Dessert
+    {
+        $inscription = trim((string) ($customCake['inscription'] ?? ''));
+        $wishes = trim((string) ($customCake['wishes'] ?? ''));
+        $designName = trim((string) $customCake['design_name']);
+        $weightTitle = trim((string) $customCake['weight_title']);
+        $price = $this->customCakePrice($customCake);
+        $photos = [];
+
+        if (!empty($customCake['preview_image_base64'])) {
+            $photos[] = 'data:image/jpeg;base64,' . $customCake['preview_image_base64'];
+        }
+
+        $details = [
+            "Дизайн: {$designName}",
+            'Надпись: ' . ($inscription !== '' ? $inscription : 'без текста'),
+            'Пожелания: ' . ($wishes !== '' ? $wishes : 'не указаны'),
+            "Вес: {$weightTitle}",
+            'Начинка: ' . trim((string) ($customCake['filling'] ?? '')),
+            'Акцент: ' . trim((string) ($customCake['accent'] ?? '')),
+        ];
+
+        return Dessert::create([
+            'name' => "Торт «{$designName}»",
+            'category' => 'custom_cake',
+            'description' => implode("\n", array_filter($details)),
+            'composition' => trim((string) ($customCake['composition'] ?? '')),
+            'price' => $price,
+            'photos' => $photos,
+            'available' => false,
+            'weight' => ((int) $customCake['weight_grams']) / 1000,
+            'calories' => null,
+            'proteins' => null,
+            'fats' => null,
+            'carbohydrates' => null,
+        ]);
     }
 
     private function deliveryFeeFor(int $subtotal, string $deliveryMode): int

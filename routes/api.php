@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DessertController;
+use App\Http\Controllers\CakeDesignController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MeController;
 use App\Http\Controllers\Api\CartController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\FcmTokenController;
 use App\Http\Controllers\OrderController;
 
 use App\Http\Controllers\Admin\DessertAdminController;
+use App\Http\Controllers\Admin\CakeDesignAdminController;
 use App\Http\Controllers\Admin\OrderAdminController;
 use App\Http\Controllers\Admin\AddressAdminController;
 
@@ -27,6 +29,8 @@ use App\Http\Controllers\Admin\AddressAdminController;
 Route::get('/products', [DessertController::class, 'jsonProducts']);
 Route::get('/product/{id}', [DessertController::class, 'jsonProduct']);
 Route::get('/image-proxy', [DessertController::class, 'imageProxy'])->name('image.proxy');
+Route::get('/cake-designs', [CakeDesignController::class, 'index']);
+Route::get('/cake-designs/{slug}/image', [CakeDesignController::class, 'image']);
 
 Route::get('/products/search', [DessertController::class, 'searchProducts']);
 
@@ -71,6 +75,13 @@ Route::middleware(['auth:sanctum', 'admin'])
 
       // фото лучше отдельным эндпоинтом
       Route::post('/products/{id}/photo', [DessertAdminController::class, 'updatePhoto']);
+
+      Route::get('/cake-designs', [CakeDesignAdminController::class, 'index']);
+      Route::post('/cake-designs', [CakeDesignAdminController::class, 'store']);
+      Route::get('/cake-designs/{design}', [CakeDesignAdminController::class, 'show']);
+      Route::put('/cake-designs/{design}', [CakeDesignAdminController::class, 'update']);
+      Route::patch('/cake-designs/{design}', [CakeDesignAdminController::class, 'update']);
+      Route::delete('/cake-designs/{design}', [CakeDesignAdminController::class, 'destroy']);
 
       Route::get('/addresses/{id}', [AddressAdminController::class, 'show']);
 

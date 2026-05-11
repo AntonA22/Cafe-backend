@@ -18,7 +18,9 @@ trait ProxiesDessertPhotos
         $proxyBaseUrl ??= $this->proxyBaseUrl();
 
         return array_values(array_map(
-            fn (string $photo) => $proxyBaseUrl . '?url=' . rawurlencode($photo),
+            fn (string $photo) => str_starts_with($photo, 'data:image/')
+                ? $photo
+                : $proxyBaseUrl . '?url=' . rawurlencode($photo),
             array_filter($photos, fn ($photo) => is_string($photo) && trim($photo) !== '')
         ));
     }
