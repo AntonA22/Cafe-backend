@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Dessert extends Model
 {
@@ -23,4 +24,10 @@ class Dessert extends Model
         'carbohydrates' => 'float',
         'calories' => 'integer'
     ];
+
+    public function favoritedBy(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'dessert_favorites')
+            ->withTimestamps();
+    }
 }

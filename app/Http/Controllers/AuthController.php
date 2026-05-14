@@ -8,6 +8,8 @@ use App\Http\Requests\RegisterRequest;
 use App\Mail\ForgotPasswordTemporaryPasswordMail;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -35,13 +37,7 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request)
     {
-        $login = $request->input('login');
-
-        // login может быть email или username
-        $user = User::query()
-            ->where('email', $login)
-            ->orWhere('username', $login)
-            ->first();
+        $user = $this->findUserForLogin($request);
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
@@ -60,9 +56,49 @@ class AuthController extends Controller
         ]);
     }
 
+    public function moderatorLogin(LoginRequest $request)
+    {
+        $user = $this->findUserForLogin($request);
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
+        if (!$user->is_staff) {
+            return response()->json([
+                'message' => 'Forbidden'
+            ], 403);
+        }
+
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
+
+        return response()->json([
+            'user' => new UserResource($user),
+        ]);
+    }
+
+    public function moderatorMe(Request $request)
+    {
+        return response()->json([
+            'user' => new UserResource($request->user()),
+        ]);
+    }
+
+    public function moderatorLogout(Request $request)
+    {
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return response()->noContent();
+    }
+
     public function logout()
     {
-        request()->user()->currentAccessToken()->delete();
+        request()->user()->currentAccessToken()?->delete();
 
         return response()->noContent();
     }
@@ -97,5 +133,24 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'If an account with this email exists, a temporary password has been sent.'
         ]);
+    }
+
+    private function findUserForLogin(LoginRequest $request): ?User
+    {
+        $login = trim((string) $request->input('login'));
+        $emailLogin = filter_var($login, FILTER_VALIDATE_EMAIL)
+            ? mb_strtolower($login)
+            : null;
+
+        // login может быть email или username
+        return User::query()
+            ->where(function ($query) use ($login, $emailLogin) {
+                if ($emailLogin !== null) {
+                    $query->whereRaw('LOWER(email) = ?', [$emailLogin]);
+                }
+
+                $query->orWhere('username', $login);
+            })
+            ->first();
     }
 }

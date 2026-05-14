@@ -14,6 +14,9 @@ use App\Http\Controllers\Admin\DessertAdminController;
 use App\Http\Controllers\Admin\CakeDesignAdminController;
 use App\Http\Controllers\Admin\OrderAdminController;
 use App\Http\Controllers\Admin\AddressAdminController;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Session\Middleware\StartSession;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,6 +42,23 @@ Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login',    [AuthController::class, 'login']);
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 
+$moderatorSessionMiddleware = [
+    EncryptCookies::class,
+    AddQueuedCookiesToResponse::class,
+    StartSession::class,
+];
+
+Route::middleware($moderatorSessionMiddleware)
+    ->prefix('moderator')
+    ->group(function () {
+        Route::post('/login', [AuthController::class, 'moderatorLogin']);
+
+        Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+            Route::get('/me', [AuthController::class, 'moderatorMe']);
+            Route::post('/logout', [AuthController::class, 'moderatorLogout']);
+        });
+    });
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/me/fcm-token', [FcmTokenController::class, 'update']);
@@ -51,6 +71,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch ('/cart/items/{dessert}', [CartController::class, 'setQty']);    // изменить qty
     Route::delete('/cart/items/{dessert}', [CartController::class, 'remove']);    // удалить десерт
     Route::delete('/cart',                 [CartController::class, 'clear']);     // очистить корзину
+
+    Route::get('/favorites', [DessertController::class, 'favoriteProducts']);
+    Route::get('/favorites/search', [DessertController::class, 'searchFavoriteProducts']);
+    Route::post('/favorites/{dessert}', [DessertController::class, 'addFavorite']);
+    Route::delete('/favorites/{dessert}', [DessertController::class, 'removeFavorite']);
 
     Route::get('/addresses', [AddressController::class, 'index']);
     Route::post('/addresses', [AddressController::class, 'store']);
@@ -65,7 +90,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 });
 
-Route::middleware(['auth:sanctum', 'admin'])
+Route::middleware([...$moderatorSessionMiddleware, 'auth:sanctum', 'admin'])
   ->prefix('admin')
   ->group(function () {
       Route::post('/products', [DessertAdminController::class, 'store']);       // создать продукт

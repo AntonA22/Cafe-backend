@@ -15,6 +15,18 @@ class DessertController extends Controller
         $searchName  = $request->input('query');
         $query = Dessert::query()->where('available', true);
 
+        if ($request->boolean('favorites')) {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json([
+                    "success" => false,
+                    "error" => "Требуется авторизация"
+                ], 401, [], JSON_UNESCAPED_UNICODE);
+            }
+
+            $query->whereHas('favoritedBy', fn ($favorites) => $favorites->where('users.id', $user->id));
+        }
+
         if ($searchName === '*') {
             $desserts = $query->get();
         } else {
@@ -26,6 +38,47 @@ class DessertController extends Controller
         return response()->json([
             "success" => true,
             "data" => $this->withProxiedPhotos($desserts)
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function favoriteProducts(Request $request)
+    {
+        $desserts = $request->user()
+            ->favoriteDesserts()
+            ->where('available', true)
+            ->orderByPivot('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            "success" => true,
+            "data" => $this->withProxiedPhotos($desserts)
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function searchFavoriteProducts(Request $request)
+    {
+        $request->merge(['favorites' => true]);
+
+        return $this->searchProducts($request);
+    }
+
+    public function addFavorite(Request $request, Dessert $dessert)
+    {
+        $request->user()->favoriteDesserts()->syncWithoutDetaching([$dessert->id]);
+
+        return response()->json([
+            "success" => true,
+            "message" => "Товар добавлен в избранное"
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function removeFavorite(Request $request, Dessert $dessert)
+    {
+        $request->user()->favoriteDesserts()->detach($dessert->id);
+
+        return response()->json([
+            "success" => true,
+            "message" => "Товар удалён из избранного"
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -116,21 +169,24 @@ class DessertController extends Controller
 
     private function withProxiedPhotos($value)
     {
+        $favoriteIds = $this->favoriteDessertIds();
+
         if ($value instanceof \Illuminate\Support\Collection) {
-            return $value->map(fn (Dessert $dessert) => $this->dessertArrayWithProxiedPhotos($dessert))->values();
+            return $value->map(fn (Dessert $dessert) => $this->dessertArrayWithProxiedPhotos($dessert, $favoriteIds))->values();
         }
 
         if ($value instanceof Dessert) {
-            return $this->dessertArrayWithProxiedPhotos($value);
+            return $this->dessertArrayWithProxiedPhotos($value, $favoriteIds);
         }
 
         return $value;
     }
 
-    private function dessertArrayWithProxiedPhotos(Dessert $dessert): array
+    private function dessertArrayWithProxiedPhotos(Dessert $dessert, array $favoriteIds = []): array
     {
         $data = $dessert->toArray();
         $photos = $dessert->photos;
+        $data['is_favorite'] = in_array($dessert->id, $favoriteIds, true);
 
         if (is_array($photos)) {
             $proxyBaseUrl = request()->getSchemeAndHttpHost() . '/api/image-proxy';
@@ -141,6 +197,20 @@ class DessertController extends Controller
         }
 
         return $data;
+    }
+
+    private function favoriteDessertIds(): array
+    {
+        $user = request()->user();
+
+        if (!$user) {
+            return [];
+        }
+
+        return $user->favoriteDesserts()
+            ->pluck('desserts.id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     private function isAllowedImageUrl(?string $url): bool

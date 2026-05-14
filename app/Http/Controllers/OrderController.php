@@ -119,12 +119,12 @@ class OrderController extends Controller
                 $dessert = $this->createCustomCakeDessert($customCake);
                 $price = $this->customCakePrice($customCake);
 
-                OrderItem::create([
-                    'order_id'   => $order->id,
-                    'dessert_id' => $dessert->id,
-                    'qty'        => 1,
-                    'price'      => $price,
-                    'sum'        => $price,
+                    OrderItem::create([
+                        'order_id'   => $order->id,
+                        'dessert_id' => $dessert->id,
+                        'qty'        => 1,
+                        'price'      => $price,
+                        'sum'        => $price,
                 ]);
 
                 $itemsCount = 1;

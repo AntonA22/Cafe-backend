@@ -11,6 +11,15 @@ class RegisterRequest extends FormRequest
         return true; // регистрироваться можно без авторизации
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('email')) {
+            $this->merge([
+                'email' => mb_strtolower(trim((string) $this->input('email'))),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         return [

@@ -38,7 +38,9 @@ class CartController extends Controller
             ], 409);
         }
 
-        $item = $cart->items()->where('dessert_id', $dessert->id)->first();
+        $item = $cart->items()
+            ->where('dessert_id', $dessert->id)
+            ->first();
 
         if ($item) {
             $item->qty += $request->qty;
@@ -48,7 +50,7 @@ class CartController extends Controller
             $cart->items()->create([
                 'dessert_id' => $dessert->id,
                 'qty' => $request->qty,
-                'price' => $dessert->price, // фиксируем цену при первом добавлении
+                'price' => $this->normalizeMoney($dessert->price), // фиксируем цену при первом добавлении
             ]);
         }
 
@@ -66,14 +68,20 @@ class CartController extends Controller
             ], 409);
         }
 
-        $item = $cart->items()->where('dessert_id', $dessert->id)->first();
+        $item = $cart->items()
+            ->where('dessert_id', $dessert->id)
+            ->first();
 
         if (!$item) {
+            if ($request->qty <= 0) {
+                return new CartResource($cart->load('items.dessert'));
+            }
+
             // если не было — можно создать
             $cart->items()->create([
                 'dessert_id' => $dessert->id,
                 'qty' => $request->qty,
-                'price' => $dessert->price,
+                'price' => $this->normalizeMoney($dessert->price),
             ]);
         } else {
             if ($request->qty <= 0) {
@@ -91,7 +99,9 @@ class CartController extends Controller
     {
         $cart = $this->userCart($request);
 
-        $cart->items()->where('dessert_id', $dessert->id)->delete();
+        $cart->items()
+            ->where('dessert_id', $dessert->id)
+            ->delete();
 
         return new CartResource($cart->load('items.dessert'));
     }
@@ -103,5 +113,10 @@ class CartController extends Controller
         $cart->items()->delete();
 
         return new CartResource($cart->load('items.dessert'));
+    }
+
+    private function normalizeMoney(mixed $value): int
+    {
+        return (int) round((float) $value);
     }
 }

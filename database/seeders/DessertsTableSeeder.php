@@ -346,7 +346,211 @@ class DessertsTableSeeder extends Seeder
                 'fats' => 18.0,
                 'carbohydrates' => 40.0,
             ],
+            ...$this->drinkVariants([
+                'name' => 'Латте гречишное',
+                'category' => 'Авторские напитки',
+                'description' => 'Авторский латте с мягким кофейным вкусом и теплой гречишной сладостью.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, молоко коровье, гречишный сироп, сахар.',
+                'price' => 420.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 390,
+                'calories' => 185,
+                'proteins' => 6.5,
+                'fats' => 6.0,
+                'carbohydrates' => 27.0,
+            ], 390, 420),
+            ...$this->drinkVariants([
+                'name' => 'Латте фисташковый',
+                'category' => 'Авторские напитки',
+                'description' => 'Плотный фисташковый латте с арабикой, молоком и кусочками жареной фисташки.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, молоко коровье, фисташковое пюре, кусочки фисташек жареных.',
+                'price' => 490.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 390,
+                'calories' => 240,
+                'proteins' => 8.0,
+                'fats' => 12.5,
+                'carbohydrates' => 24.0,
+            ], 390, 490),
+            ...$this->drinkVariants([
+                'name' => 'Латте апельсиновый',
+                'category' => 'Авторские напитки',
+                'description' => 'Нежный латте с апельсиновым сиропом и легкой цитрусовой сладостью.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, молоко коровье, апельсиновый сироп, сахар.',
+                'price' => 390.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 390,
+                'calories' => 175,
+                'proteins' => 6.0,
+                'fats' => 5.5,
+                'carbohydrates' => 25.0,
+            ], 390, 390),
+            ...$this->drinkVariants([
+                'name' => 'Латте кокосовый',
+                'category' => 'Авторские напитки',
+                'description' => 'Кокосовый латте на кокосовом молоке со стружкой и мягким кофейным послевкусием.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, кокосовое молоко, кокосовая стружка.',
+                'price' => 390.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 390,
+                'calories' => 210,
+                'proteins' => 2.5,
+                'fats' => 14.0,
+                'carbohydrates' => 18.0,
+            ], 390, 390),
+            ...$this->drinkVariants([
+                'name' => 'Раф клубничный',
+                'category' => 'Авторские напитки',
+                'description' => 'Сливочный кофейный напиток с клубничным сиропом и сублимированной клубникой.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, молоко коровье, клубничный сироп, сахар, сублимированная клубника.',
+                'price' => 440.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 390,
+                'calories' => 225,
+                'proteins' => 6.0,
+                'fats' => 9.0,
+                'carbohydrates' => 30.0,
+            ], 390, 440),
+            ...$this->drinkVariants([
+                'name' => 'Раф медовый',
+                'category' => 'Авторские напитки',
+                'description' => 'Мягкий раф с арабикой, молоком и натуральным акациевым медом.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, молоко коровье, мед акациевый.',
+                'price' => 410.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 390,
+                'calories' => 215,
+                'proteins' => 6.0,
+                'fats' => 8.5,
+                'carbohydrates' => 28.0,
+            ], 390, 410),
+            ...$this->drinkVariants([
+                'name' => 'Мокко',
+                'category' => 'Авторские напитки',
+                'description' => 'Кофейно-шоколадный напиток с темным тертым шоколадом.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, молоко коровье, шоколад темный тертый.',
+                'price' => 390.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 350,
+                'calories' => 230,
+                'proteins' => 7.0,
+                'fats' => 10.0,
+                'carbohydrates' => 27.0,
+            ], 350, 390),
+            ...$this->drinkVariants([
+                'name' => 'Латте лавандовый',
+                'category' => 'Авторские напитки',
+                'description' => 'Ароматный латте с лавандовым сиропом и спокойной цветочной нотой.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, молоко коровье, лавандовый сироп, сахар.',
+                'price' => 390.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 390,
+                'calories' => 175,
+                'proteins' => 6.0,
+                'fats' => 5.5,
+                'carbohydrates' => 25.0,
+            ], 390, 390),
+            ...$this->drinkVariants([
+                'name' => 'Американо',
+                'category' => 'Традиционные напитки',
+                'description' => 'Классический черный кофе на арабике с чистым вкусом и мягкой горчинкой.',
+                'composition' => 'Кофе молотый сорта Арабики 100%.',
+                'price' => 320.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 350,
+                'calories' => 6,
+                'proteins' => 0.3,
+                'fats' => 0.1,
+                'carbohydrates' => 0.7,
+            ], 350, 320),
+            ...$this->drinkVariants([
+                'name' => 'Капучино',
+                'category' => 'Традиционные напитки',
+                'description' => 'Эспрессо с теплым молоком и плотной молочной пеной.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, молоко коровье.',
+                'price' => 340.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 390,
+                'calories' => 150,
+                'proteins' => 7.0,
+                'fats' => 7.0,
+                'carbohydrates' => 12.0,
+            ], 390, 340),
+            ...$this->drinkVariants([
+                'name' => 'Раф',
+                'category' => 'Традиционные напитки',
+                'description' => 'Сливочный кофейный напиток с мягкой текстурой и нежным вкусом.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, сливки, молоко коровье.',
+                'price' => 390.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 390,
+                'calories' => 260,
+                'proteins' => 5.5,
+                'fats' => 18.0,
+                'carbohydrates' => 18.0,
+            ], 390, 390),
+            ...$this->drinkVariants([
+                'name' => 'Латте',
+                'category' => 'Традиционные напитки',
+                'description' => 'Мягкий молочный кофе на арабике с нежным сливочным послевкусием.',
+                'composition' => 'Кофе молотый сорта Арабики 100%, молоко коровье.',
+                'price' => 350.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 390,
+                'calories' => 170,
+                'proteins' => 8.0,
+                'fats' => 7.0,
+                'carbohydrates' => 14.0,
+            ], 390, 350),
+            ...$this->drinkVariants([
+                'name' => 'Эспрессо',
+                'category' => 'Традиционные напитки',
+                'description' => 'Насыщенный кофейный напиток на арабике с ярким ароматом и плотным вкусом.',
+                'composition' => 'Кофе молотый сорта Арабики 100%.',
+                'price' => 290.00,
+                'photos' => null,
+                'available' => true,
+                'weight' => 150,
+                'calories' => 5,
+                'proteins' => 0.2,
+                'fats' => 0.1,
+                'carbohydrates' => 0.5,
+            ], 150, 290, [
+                ['ml' => 50, 'price' => 150],
+                ['ml' => 100, 'price' => 220],
+                ['ml' => 150, 'price' => 290],
+            ]),
         ];
+
+        Dessert::query()
+            ->whereIn('name', [
+                'Латте гречишное',
+                'Латте фисташковый',
+                'Латте апельсиновый',
+                'Латте кокосовый',
+                'Раф клубничный',
+                'Раф медовый',
+                'Мокко',
+                'Латте лавандовый',
+                'Американо',
+                'Капучино',
+                'Раф',
+                'Латте',
+                'Эспрессо',
+            ])
+            ->update(['available' => false]);
 
         foreach ($items as $item) {
             $existing = Dessert::query()->where('name', $item['name'])->first();
@@ -361,5 +565,36 @@ class DessertsTableSeeder extends Seeder
 
             Dessert::query()->create($item);
         }
+    }
+
+    private function drinkVariants(array $baseDrink, int $baseMl, int $basePrice, ?array $variants = null): array
+    {
+        $smallPrice = (int) round(($basePrice * 0.76) / 10) * 10;
+        $largePrice = (int) round(($basePrice * 1.14) / 10) * 10;
+        $variants ??= [
+            ['ml' => 250, 'price' => $smallPrice],
+            ['ml' => $baseMl, 'price' => $basePrice],
+            ['ml' => 450, 'price' => $largePrice],
+        ];
+
+        return array_map(
+            fn(array $variant) => $this->drinkVariant($baseDrink, $baseMl, $variant['ml'], $variant['price']),
+            $variants
+        );
+    }
+
+    private function drinkVariant(array $baseDrink, int $baseMl, int $ml, int $price): array
+    {
+        $multiplier = $ml / $baseMl;
+
+        return array_merge($baseDrink, [
+            'name' => "{$baseDrink['name']} {$ml} мл",
+            'price' => $price,
+            'weight' => $ml,
+            'calories' => (int) round($baseDrink['calories'] * $multiplier),
+            'proteins' => round($baseDrink['proteins'] * $multiplier, 1),
+            'fats' => round($baseDrink['fats'] * $multiplier, 1),
+            'carbohydrates' => round($baseDrink['carbohydrates'] * $multiplier, 1),
+        ]);
     }
 }
