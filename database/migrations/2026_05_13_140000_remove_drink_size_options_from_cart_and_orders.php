@@ -55,13 +55,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('desserts', function (Blueprint $table) {
-            if (!Schema::hasColumn('desserts', 'size_options')) {
+            if (! Schema::hasColumn('desserts', 'size_options')) {
                 $table->json('size_options')->nullable()->after('photos');
             }
         });
 
         Schema::table('cart_items', function (Blueprint $table) {
-            if (!Schema::hasColumn('cart_items', 'option_key')) {
+            if (! Schema::hasColumn('cart_items', 'option_key')) {
                 $table->dropUnique('uniq_cart_dessert');
                 $table->string('option_key')->default('default')->after('dessert_id');
                 $table->string('option_title')->nullable()->after('option_key');
@@ -71,7 +71,7 @@ return new class extends Migration
         });
 
         Schema::table('order_items', function (Blueprint $table) {
-            if (!Schema::hasColumn('order_items', 'option_key')) {
+            if (! Schema::hasColumn('order_items', 'option_key')) {
                 $table->string('option_key')->default('default')->after('dessert_id');
                 $table->string('option_title')->nullable()->after('option_key');
                 $table->unsignedInteger('option_ml')->nullable()->after('option_title');

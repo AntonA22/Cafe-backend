@@ -35,4 +35,16 @@ return [
         ],
     ],
 
+    'aitunnel' => [
+        'key' => env('AITUNNEL_API_KEY'),
+        'base_url' => env('AITUNNEL_BASE_URL', 'https://api.aitunnel.ru/v1'),
+        'image_model' => env('AITUNNEL_IMAGE_MODEL', 'gemini-3.1-flash-image-preview'),
+    ],
+
+    'supabase' => [
+        'url' => env('SUPABASE_URL'),
+        'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
+        'bucket' => env('SUPABASE_BUCKET', 'cafe'),
+    ],
+
 ];

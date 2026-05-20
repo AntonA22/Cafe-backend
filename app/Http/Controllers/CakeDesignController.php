@@ -8,6 +8,12 @@ use Illuminate\Support\Facades\File;
 
 class CakeDesignController extends Controller
 {
+    private const FIXED_AVAILABLE_WEIGHTS = [
+        ['title' => '0,8 кг', 'grams' => 800],
+        ['title' => '1,2 кг', 'grams' => 1200],
+        ['title' => '1,5 кг', 'grams' => 1500],
+    ];
+
     public function index(Request $request)
     {
         $designs = CakeDesign::query()
@@ -36,12 +42,12 @@ class CakeDesignController extends Controller
             return redirect()->away($this->proxiedImageUrl($firstPhoto));
         }
 
-        if (!$design->image_path) {
+        if (! $design->image_path) {
             abort(404);
         }
 
-        $path = storage_path('app/' . ltrim($design->image_path, '/'));
-        if (!is_file($path)) {
+        $path = storage_path('app/'.ltrim($design->image_path, '/'));
+        if (! is_file($path)) {
             abort(404);
         }
 
@@ -53,7 +59,7 @@ class CakeDesignController extends Controller
 
     private function toResponse(CakeDesign $design, Request $request): array
     {
-        $weightTitle = $this->formatWeightTitle($design->weight_grams);
+        $availableWeights = $this->availableWeights($design);
         $photoURLs = $this->displayPhotoUrls($design, $request);
         $imageURL = $photoURLs[0] ?? $this->displayLegacyImageUrl($design, $request);
 
@@ -61,7 +67,7 @@ class CakeDesignController extends Controller
             'id' => $design->slug,
             'name' => $design->name,
             'subtitle' => $design->subtitle,
-            'imageName' => 'cake_text_' . str_replace('-', '_', $design->slug),
+            'imageName' => 'cake_text_'.str_replace('-', '_', $design->slug),
             'imageURLString' => $imageURL,
             'photos' => $photoURLs,
             'galleryImageURLStrings' => $photoURLs,
@@ -70,21 +76,36 @@ class CakeDesignController extends Controller
             'composition' => $design->composition,
             'storage' => $design->storage,
             'kcalPer100g' => $design->calories_per_100g ?? 0,
-            'pricePerKg' => (int) round($design->price * 1000 / max($design->weight_grams, 1)),
+            'pricePerKg' => (int) round($design->price * 10),
             'recommendedText' => $design->recommended_text ?? '',
-            'availableWeights' => [
-                [
-                    'title' => $weightTitle,
-                    'grams' => $design->weight_grams,
-                ],
-            ],
+            'availableWeights' => $availableWeights,
         ];
+    }
+
+    private function availableWeights(CakeDesign $design): array
+    {
+        $weights = is_array($design->available_weights) ? $design->available_weights : [];
+        $normalized = [];
+
+        foreach ($weights as $weight) {
+            $grams = (int) ($weight['grams'] ?? 0);
+            if ($grams <= 0) {
+                continue;
+            }
+
+            $normalized[] = [
+                'title' => trim((string) ($weight['title'] ?? '')) ?: $this->formatWeightTitle($grams),
+                'grams' => $grams,
+            ];
+        }
+
+        return $normalized !== [] ? $normalized : self::FIXED_AVAILABLE_WEIGHTS;
     }
 
     private function rawPhotoUrls(CakeDesign $design): array
     {
         $photos = $design->photos;
-        if (!is_array($photos)) {
+        if (! is_array($photos)) {
             $photos = [];
         }
 
@@ -109,7 +130,7 @@ class CakeDesignController extends Controller
     private function displayLegacyImageUrl(CakeDesign $design, Request $request): ?string
     {
         if ($design->image_path) {
-            return $request->getSchemeAndHttpHost() . '/api/cake-designs/' . $design->slug . '/image';
+            return $request->getSchemeAndHttpHost().'/api/cake-designs/'.$design->slug.'/image';
         }
 
         return null;
@@ -118,15 +139,16 @@ class CakeDesignController extends Controller
     private function proxiedImageUrl(string $url, ?Request $request = null): string
     {
         $host = $request?->getSchemeAndHttpHost() ?? request()->getSchemeAndHttpHost();
-        return $host . '/api/image-proxy?url=' . rawurlencode($url);
+
+        return $host.'/api/image-proxy?url='.rawurlencode($url);
     }
 
     private function formatWeightTitle(int $grams): string
     {
         if ($grams % 1000 === 0) {
-            return ($grams / 1000) . ' кг';
+            return ($grams / 1000).' кг';
         }
 
-        return rtrim(rtrim(number_format($grams / 1000, 1, '.', ''), '0'), '.') . ' кг';
+        return str_replace('.', ',', rtrim(rtrim(number_format($grams / 1000, 1, '.', ''), '0'), '.')).' кг';
     }
 }

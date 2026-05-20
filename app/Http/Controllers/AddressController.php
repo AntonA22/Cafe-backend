@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Address;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class AddressController extends Controller
@@ -31,7 +31,7 @@ class AddressController extends Controller
             'longitude' => 'required|numeric',
         ]);
 
-        $shouldBecomeDefault = !Address::where('user_id', $request->user()->id)->exists();
+        $shouldBecomeDefault = ! Address::where('user_id', $request->user()->id)->exists();
 
         $address = new Address($data);
         $address->user()->associate($request->user());

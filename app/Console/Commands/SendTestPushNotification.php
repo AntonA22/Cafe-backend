@@ -19,18 +19,19 @@ class SendTestPushNotification extends Command
     {
         $fcmToken = $this->option('token');
 
-        if (!$fcmToken) {
+        if (! $fcmToken) {
             $email = $this->argument('email');
 
-            if (!$email) {
+            if (! $email) {
                 $users = User::whereNotNull('fcm_token')->get(['id', 'email', 'username']);
 
                 if ($users->isEmpty()) {
                     $this->error('Нет пользователей с FCM-токеном. Сначала войдите в приложение на iPhone.');
+
                     return self::FAILURE;
                 }
 
-                $labels = $users->map(fn($u) => "{$u->email} ({$u->username})")->toArray();
+                $labels = $users->map(fn ($u) => "{$u->email} ({$u->username})")->toArray();
                 $choice = $this->choice('Выберите пользователя:', $labels);
                 $index = array_search($choice, $labels);
                 $fcmToken = $users[$index]->fcm_token;
@@ -38,13 +39,15 @@ class SendTestPushNotification extends Command
             } else {
                 $user = User::where('email', $email)->first();
 
-                if (!$user) {
+                if (! $user) {
                     $this->error("Пользователь с email {$email} не найден.");
+
                     return self::FAILURE;
                 }
 
-                if (!$user->fcm_token) {
-                    $this->error("У пользователя нет FCM-токена. Сначала откройте приложение на iPhone.");
+                if (! $user->fcm_token) {
+                    $this->error('У пользователя нет FCM-токена. Сначала откройте приложение на iPhone.');
+
                     return self::FAILURE;
                 }
 
@@ -63,9 +66,11 @@ class SendTestPushNotification extends Command
         try {
             $messaging->send($message);
             $this->info('Уведомление успешно отправлено!');
+
             return self::SUCCESS;
         } catch (\Throwable $e) {
-            $this->error('Ошибка: ' . $e->getMessage());
+            $this->error('Ошибка: '.$e->getMessage());
+
             return self::FAILURE;
         }
     }

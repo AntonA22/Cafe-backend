@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\UpdateMeRequest;
 use App\Http\Requests\ChangePasswordRequest;
+use App\Http\Requests\UpdateMeRequest;
 use App\Http\Resources\UserResource;
 use Illuminate\Support\Facades\Hash;
 

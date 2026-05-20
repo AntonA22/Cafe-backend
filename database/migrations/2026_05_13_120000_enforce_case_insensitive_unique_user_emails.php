@@ -9,7 +9,7 @@ return new class extends Migration
     {
         $driver = DB::connection()->getDriverName();
 
-        if (!in_array($driver, ['pgsql', 'sqlite'], true)) {
+        if (! in_array($driver, ['pgsql', 'sqlite'], true)) {
             return;
         }
 
@@ -36,6 +36,7 @@ return new class extends Migration
 
         if ($driver === 'pgsql') {
             DB::statement('create unique index if not exists users_email_lower_unique on users (lower(email))');
+
             return;
         }
 
@@ -48,6 +49,7 @@ return new class extends Migration
 
         if ($driver === 'pgsql') {
             DB::statement('drop index if exists users_email_lower_unique');
+
             return;
         }
 

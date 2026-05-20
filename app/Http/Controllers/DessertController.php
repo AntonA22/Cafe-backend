@@ -6,38 +6,37 @@ use App\Models\Dessert;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
-
 class DessertController extends Controller
 {
-
     public function searchProducts(Request $request)
     {
-        $searchName  = $request->input('query');
-        $query = Dessert::query()->where('available', true);
+        $searchName = trim((string) $request->input('query', ''));
+        $query = $this->publicDessertQuery();
 
         if ($request->boolean('favorites')) {
             $user = $request->user();
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
-                    "success" => false,
-                    "error" => "Требуется авторизация"
+                    'success' => false,
+                    'error' => 'Требуется авторизация',
                 ], 401, [], JSON_UNESCAPED_UNICODE);
             }
 
             $query->whereHas('favoritedBy', fn ($favorites) => $favorites->where('users.id', $user->id));
         }
 
-        if ($searchName === '*') {
+        if ($searchName === '' || $searchName === '*') {
             $desserts = $query->get();
         } else {
-            $desserts = $query
-                ->where('name', 'LIKE', "%{$searchName}%")
-                ->get();
+            $terms = preg_split('/\s+/u', $searchName, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $desserts = $query->get()
+                ->filter(fn (Dessert $dessert) => $this->dessertMatchesSearch($dessert, $terms))
+                ->values();
         }
 
         return response()->json([
-            "success" => true,
-            "data" => $this->withProxiedPhotos($desserts)
+            'success' => true,
+            'data' => $this->withNormalizedPhotos($desserts),
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -46,12 +45,13 @@ class DessertController extends Controller
         $desserts = $request->user()
             ->favoriteDesserts()
             ->where('available', true)
+            ->where('archived', false)
             ->orderByPivot('created_at', 'desc')
             ->get();
 
         return response()->json([
-            "success" => true,
-            "data" => $this->withProxiedPhotos($desserts)
+            'success' => true,
+            'data' => $this->withNormalizedPhotos($desserts),
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -64,11 +64,18 @@ class DessertController extends Controller
 
     public function addFavorite(Request $request, Dessert $dessert)
     {
+        if (! $dessert->available || $dessert->archived) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Dessert not found',
+            ], 404, [], JSON_UNESCAPED_UNICODE);
+        }
+
         $request->user()->favoriteDesserts()->syncWithoutDetaching([$dessert->id]);
 
         return response()->json([
-            "success" => true,
-            "message" => "Товар добавлен в избранное"
+            'success' => true,
+            'message' => 'Товар добавлен в избранное',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -77,38 +84,36 @@ class DessertController extends Controller
         $request->user()->favoriteDesserts()->detach($dessert->id);
 
         return response()->json([
-            "success" => true,
-            "message" => "Товар удалён из избранного"
+            'success' => true,
+            'message' => 'Товар удалён из избранного',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
-
     public function jsonProducts()
     {
-        $desserts = Dessert::query()
-            ->where('available', true)
+        $desserts = $this->publicDessertQuery()
             ->get();
 
         return response()->json([
-            "success" => true,
-            "data" => $this->withProxiedPhotos($desserts)
+            'success' => true,
+            'data' => $this->withNormalizedPhotos($desserts),
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function jsonProduct($id)
     {
-        $dessert = Dessert::find($id);
+        $dessert = $this->publicDessertQuery()->find($id);
 
-        if (!$dessert) {
+        if (! $dessert) {
             return response()->json([
-                "success" => false,
-                "error" => "Dessert not found"
+                'success' => false,
+                'error' => 'Dessert not found',
             ], 404, [], JSON_UNESCAPED_UNICODE);
         }
 
         return response()->json([
-            "success" => true,
-            "data" => $this->withProxiedPhotos($dessert)
+            'success' => true,
+            'data' => $this->withNormalizedPhotos($dessert),
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -116,17 +121,17 @@ class DessertController extends Controller
     {
         $url = $request->query('url');
 
-        if (!$this->isAllowedImageUrl($url)) {
+        if (! $this->isAllowedImageUrl($url)) {
             return response()->json([
-                "success" => false,
-                "error" => "Invalid image URL"
+                'success' => false,
+                'error' => 'Invalid image URL',
             ], 422, [], JSON_UNESCAPED_UNICODE);
         }
 
         $cacheDirectory = storage_path('app/image-proxy');
         $cacheKey = hash('sha256', $url);
-        $imagePath = $cacheDirectory . DIRECTORY_SEPARATOR . $cacheKey . '.image';
-        $metaPath = $cacheDirectory . DIRECTORY_SEPARATOR . $cacheKey . '.json';
+        $imagePath = $cacheDirectory.DIRECTORY_SEPARATOR.$cacheKey.'.image';
+        $metaPath = $cacheDirectory.DIRECTORY_SEPARATOR.$cacheKey.'.json';
 
         if (is_file($imagePath)) {
             $contentType = 'image/jpeg';
@@ -145,12 +150,12 @@ class DessertController extends Controller
 
         $remote = Http::timeout(15)->retry(2, 250)->get($url);
 
-        if (!$remote->successful()) {
+        if (! $remote->successful()) {
             return response($remote->body(), $remote->status())
                 ->header('Content-Type', $remote->header('Content-Type', 'text/plain'));
         }
 
-        if (!is_dir($cacheDirectory)) {
+        if (! is_dir($cacheDirectory)) {
             mkdir($cacheDirectory, 0755, true);
         }
 
@@ -167,31 +172,55 @@ class DessertController extends Controller
             ->header('Cache-Control', 'public, max-age=86400');
     }
 
-    private function withProxiedPhotos($value)
+    private function withNormalizedPhotos($value)
     {
         $favoriteIds = $this->favoriteDessertIds();
 
         if ($value instanceof \Illuminate\Support\Collection) {
-            return $value->map(fn (Dessert $dessert) => $this->dessertArrayWithProxiedPhotos($dessert, $favoriteIds))->values();
+            return $value->map(fn (Dessert $dessert) => $this->dessertArrayWithNormalizedPhotos($dessert, $favoriteIds))->values();
         }
 
         if ($value instanceof Dessert) {
-            return $this->dessertArrayWithProxiedPhotos($value, $favoriteIds);
+            return $this->dessertArrayWithNormalizedPhotos($value, $favoriteIds);
         }
 
         return $value;
     }
 
-    private function dessertArrayWithProxiedPhotos(Dessert $dessert, array $favoriteIds = []): array
+    private function publicDessertQuery()
+    {
+        return Dessert::query()
+            ->where('available', true)
+            ->where('archived', false);
+    }
+
+    private function dessertMatchesSearch(Dessert $dessert, array $terms): bool
+    {
+        $haystack = implode(' ', array_filter([
+            $dessert->name,
+            $dessert->category,
+            $dessert->description,
+            $dessert->composition,
+        ], fn ($value) => is_string($value) && trim($value) !== ''));
+
+        foreach ($terms as $term) {
+            if (mb_stripos($haystack, $term) === false) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function dessertArrayWithNormalizedPhotos(Dessert $dessert, array $favoriteIds = []): array
     {
         $data = $dessert->toArray();
         $photos = $dessert->photos;
         $data['is_favorite'] = in_array($dessert->id, $favoriteIds, true);
 
         if (is_array($photos)) {
-            $proxyBaseUrl = request()->getSchemeAndHttpHost() . '/api/image-proxy';
             $data['photos'] = array_values(array_map(
-                fn (string $photo) => $proxyBaseUrl . '?url=' . rawurlencode($photo),
+                fn (string $photo) => $this->originalImageUrl($photo),
                 array_filter($photos, fn ($photo) => is_string($photo) && trim($photo) !== '')
             ));
         }
@@ -199,11 +228,29 @@ class DessertController extends Controller
         return $data;
     }
 
+    private function originalImageUrl(string $photo): string
+    {
+        $photo = trim($photo);
+        $query = parse_url($photo, PHP_URL_QUERY);
+
+        if ($query === null) {
+            return $photo;
+        }
+
+        parse_str($query, $params);
+
+        if (isset($params['url']) && is_string($params['url']) && $this->isAllowedImageUrl($params['url'])) {
+            return $params['url'];
+        }
+
+        return $photo;
+    }
+
     private function favoriteDessertIds(): array
     {
         $user = request()->user();
 
-        if (!$user) {
+        if (! $user) {
             return [];
         }
 
@@ -215,7 +262,7 @@ class DessertController extends Controller
 
     private function isAllowedImageUrl(?string $url): bool
     {
-        if (!$url) {
+        if (! $url) {
             return false;
         }
 

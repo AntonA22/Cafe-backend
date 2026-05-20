@@ -35,7 +35,7 @@ class CartResource extends JsonResource
                     ] : null,
                 ];
             })->values(),
-            'total' => $items->sum(fn($i) => $i->qty * $i->price),
+            'total' => $items->sum(fn ($i) => $i->qty * $i->price),
         ];
     }
 }

@@ -4,12 +4,31 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Dessert;
-use App\Models\OrderItem;
-use Illuminate\Http\Request;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\Request;
 
 class DessertAdminController extends Controller
 {
+    private const CUSTOM_CAKE_CATEGORY = 'custom_cake';
+
+    /**
+     * GET /admin/products
+     */
+    public function index()
+    {
+        $desserts = Dessert::query()
+            ->where('archived', false)
+            ->where('category', '!=', self::CUSTOM_CAKE_CATEGORY)
+            ->orderBy('category')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $desserts,
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
     /**
      * POST /admin/products
      */
@@ -30,9 +49,9 @@ class DessertAdminController extends Controller
      */
     public function show($id)
     {
-        $dessert = Dessert::find($id);
+        $dessert = $this->findVisibleProduct($id);
 
-        if (!$dessert) {
+        if (! $dessert) {
             return response()->json([
                 'success' => false,
                 'error' => 'Product not found',
@@ -50,9 +69,9 @@ class DessertAdminController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $dessert = Dessert::find($id);
+        $dessert = $this->findVisibleProduct($id);
 
-        if (!$dessert) {
+        if (! $dessert) {
             return response()->json([
                 'success' => false,
                 'error' => 'Product not found',
@@ -75,30 +94,32 @@ class DessertAdminController extends Controller
      */
     public function destroy($id)
     {
-        $dessert = Dessert::find($id);
+        $dessert = $this->findVisibleProduct($id);
 
-        if (!$dessert) {
+        if (! $dessert) {
             return response()->json([
                 'success' => false,
                 'error' => 'Product not found',
             ], 404, [], JSON_UNESCAPED_UNICODE);
         }
 
-        // Не удаляем десерты, которые уже попали в заказы:
-        // иначе теряется состав исторических заказов.
-        if (OrderItem::where('dessert_id', $dessert->id)->exists()) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Нельзя удалить товар, который уже есть в заказах. Снимите его с продажи через available=false.',
-            ], 409, [], JSON_UNESCAPED_UNICODE);
-        }
-
-        $dessert->delete();
+        $dessert->forceFill([
+            'archived' => true,
+            'available' => false,
+        ])->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Product deleted',
+            'message' => 'Product archived',
         ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    private function findVisibleProduct($id): ?Dessert
+    {
+        return Dessert::query()
+            ->where('archived', false)
+            ->where('category', '!=', self::CUSTOM_CAKE_CATEGORY)
+            ->find($id);
     }
 
     private function validateDessert(Request $request, bool $isCreate): array
@@ -138,7 +159,7 @@ class DessertAdminController extends Controller
                 : [$photos];
         }
 
-        if (!is_array($photos)) {
+        if (! is_array($photos)) {
             throw new HttpResponseException(response()->json([
                 'success' => false,
                 'error' => 'Invalid photos format',

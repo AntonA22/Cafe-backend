@@ -47,7 +47,7 @@ class UpdateMeRequest extends FormRequest
                 Rule::unique('users', 'phone')->ignore($userId),
             ],
             'first_name' => ['nullable', 'string', 'max:100'],
-            'last_name'  => ['nullable', 'string', 'max:100'],
+            'last_name' => ['nullable', 'string', 'max:100'],
         ];
     }
 
@@ -55,17 +55,17 @@ class UpdateMeRequest extends FormRequest
     {
         return [
             'username.string' => 'Логин должен быть строкой',
-            'username.min'    => 'Логин слишком короткий',
-            'username.max'    => 'Логин слишком длинный',
+            'username.min' => 'Логин слишком короткий',
+            'username.max' => 'Логин слишком длинный',
             'username.unique' => 'Этот логин уже занят',
 
-            'email.email'     => 'Некорректный email',
-            'email.unique'    => 'Этот email уже используется',
+            'email.email' => 'Некорректный email',
+            'email.unique' => 'Этот email уже используется',
 
             'first_name.string' => 'Имя должно быть строкой',
-            'last_name.string'  => 'Фамилия должна быть строкой',
-            'phone.string'      => 'Телефон должен быть строкой',
-            'phone.unique'      => 'Этот телефон уже используется',
+            'last_name.string' => 'Фамилия должна быть строкой',
+            'phone.string' => 'Телефон должен быть строкой',
+            'phone.unique' => 'Этот телефон уже используется',
         ];
     }
 }

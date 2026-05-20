@@ -11,22 +11,22 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            if (!Schema::hasColumn('orders', 'subtotal_price')) {
+            if (! Schema::hasColumn('orders', 'subtotal_price')) {
                 $table->integer('subtotal_price')->default(0)->after('items_count');
             }
-            if (!Schema::hasColumn('orders', 'delivery_fee')) {
+            if (! Schema::hasColumn('orders', 'delivery_fee')) {
                 $table->integer('delivery_fee')->default(0)->after('subtotal_price');
             }
-            if (!Schema::hasColumn('orders', 'delivery_mode')) {
+            if (! Schema::hasColumn('orders', 'delivery_mode')) {
                 $table->string('delivery_mode')->default(Order::DELIVERY_MODE_DELIVERY)->after('comment');
             }
-            if (!Schema::hasColumn('orders', 'payment_mode')) {
+            if (! Schema::hasColumn('orders', 'payment_mode')) {
                 $table->string('payment_mode')->nullable()->after('delivery_mode');
             }
-            if (!Schema::hasColumn('orders', 'leave_at_door')) {
+            if (! Schema::hasColumn('orders', 'leave_at_door')) {
                 $table->boolean('leave_at_door')->default(false)->after('payment_mode');
             }
-            if (!Schema::hasColumn('orders', 'customer_phone')) {
+            if (! Schema::hasColumn('orders', 'customer_phone')) {
                 $table->string('customer_phone', 50)->nullable()->after('leave_at_door');
             }
         });

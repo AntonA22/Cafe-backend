@@ -18,6 +18,7 @@ class CakeDesign extends Model
         'composition',
         'storage',
         'weight_grams',
+        'available_weights',
         'price',
         'calories_per_100g',
         'recommended_text',
@@ -27,6 +28,7 @@ class CakeDesign extends Model
 
     protected $casts = [
         'weight_grams' => 'integer',
+        'available_weights' => 'array',
         'price' => 'float',
         'photos' => 'array',
         'calories_per_100g' => 'integer',

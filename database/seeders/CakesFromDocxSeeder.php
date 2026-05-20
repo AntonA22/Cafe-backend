@@ -132,7 +132,7 @@ class CakesFromDocxSeeder extends Seeder
                 'carbohydrates' => $nutrition['carbohydrates'],
             ]);
 
-            if (!empty($existingPhotos)) {
+            if (! empty($existingPhotos)) {
                 $dessert->photos = $existingPhotos;
             }
 
@@ -142,7 +142,7 @@ class CakesFromDocxSeeder extends Seeder
 
     private function nutritionFor(string $name, string $composition): array
     {
-        $text = mb_strtolower($name . ' ' . $composition);
+        $text = mb_strtolower($name.' '.$composition);
 
         if (str_contains($text, 'наполеон') || str_contains($text, 'масло сливочное')) {
             return [

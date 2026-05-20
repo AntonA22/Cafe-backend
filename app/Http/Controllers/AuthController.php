@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
-use App\Mail\ForgotPasswordTemporaryPasswordMail;
 use App\Http\Resources\UserResource;
+use App\Mail\ForgotPasswordTemporaryPasswordMail;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,19 +19,19 @@ class AuthController extends Controller
     public function register(RegisterRequest $request)
     {
         $user = User::create([
-            'email'      => $request->email,
-            'username'   => $request->username,
-            'phone'      => $request->phone,
+            'email' => $request->email,
+            'username' => $request->username,
+            'phone' => $request->phone,
             'first_name' => $request->first_name,
-            'last_name'  => $request->last_name,
-            'password'   => Hash::make($request->password),
+            'last_name' => $request->last_name,
+            'password' => Hash::make($request->password),
         ]);
 
         $token = $user->createToken('ios')->plainTextToken;
 
         return response()->json([
             'token' => $token,
-            'user'  => new UserResource($user),
+            'user' => new UserResource($user),
         ], 201);
     }
 
@@ -39,9 +39,9 @@ class AuthController extends Controller
     {
         $user = $this->findUserForLogin($request);
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Invalid credentials'
+                'message' => 'Invalid credentials',
             ], 401);
         }
 
@@ -52,7 +52,7 @@ class AuthController extends Controller
 
         return response()->json([
             'token' => $token,
-            'user'  => new UserResource($user),
+            'user' => new UserResource($user),
         ]);
     }
 
@@ -60,15 +60,15 @@ class AuthController extends Controller
     {
         $user = $this->findUserForLogin($request);
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Invalid credentials'
+                'message' => 'Invalid credentials',
             ], 401);
         }
 
-        if (!$user->is_staff) {
+        if (! $user->is_staff) {
             return response()->json([
-                'message' => 'Forbidden'
+                'message' => 'Forbidden',
             ], 403);
         }
 
@@ -108,17 +108,20 @@ class AuthController extends Controller
         $email = $request->string('email')->lower()->toString();
 
         $user = User::query()
-            ->where('email', $email)
+            ->whereRaw('LOWER(email) = ?', [$email])
             ->first();
 
-        // Не раскрываем, существует ли аккаунт с таким email.
-        if (!$user) {
+        if (! $user) {
             return response()->json([
-                'message' => 'If an account with this email exists, a temporary password has been sent.'
-            ]);
+                'message' => 'Почта не зарегистрирована',
+            ], 404);
         }
 
         $temporaryPassword = Str::password(10, true, true, false, false);
+
+        Mail::to($user->email)->send(
+            new ForgotPasswordTemporaryPasswordMail($temporaryPassword)
+        );
 
         $user->password = Hash::make($temporaryPassword);
         $user->save();
@@ -126,12 +129,13 @@ class AuthController extends Controller
         // После сброса лучше завершить все активные сессии.
         $user->tokens()->delete();
 
-        Mail::to($user->email)->send(
-            new ForgotPasswordTemporaryPasswordMail($temporaryPassword)
-        );
+        return $this->forgotPasswordNeutralResponse();
+    }
 
+    private function forgotPasswordNeutralResponse()
+    {
         return response()->json([
-            'message' => 'If an account with this email exists, a temporary password has been sent.'
+            'message' => 'If an account with this email exists, a temporary password has been sent.',
         ]);
     }
 

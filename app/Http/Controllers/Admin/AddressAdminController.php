@@ -14,7 +14,7 @@ class AddressAdminController extends Controller
             ->with(['user']) // если есть связь user() у Address
             ->find($id);
 
-        if (!$address) {
+        if (! $address) {
             return response()->json([
                 'success' => false,
                 'error' => 'Address not found',

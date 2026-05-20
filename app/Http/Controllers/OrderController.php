@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Http\Resources\OrderResource;
 use App\Models\Address;
 use App\Models\CakeDesign;
 use App\Models\Cart;
@@ -10,16 +10,22 @@ use App\Models\Dessert;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\User;
-use App\Http\Resources\OrderResource;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
 {
     private const FREE_DELIVERY_THRESHOLD = 1200;
+
     private const STANDARD_DELIVERY_FEE = 149;
+
+    private const FIXED_CUSTOM_CAKE_WEIGHTS = [
+        ['title' => '0,8 кг', 'grams' => 800],
+        ['title' => '1,2 кг', 'grams' => 1200],
+        ['title' => '1,5 кг', 'grams' => 1500],
+    ];
 
     private function userCart(Request $request): Cart
     {
@@ -57,16 +63,61 @@ class OrderController extends Controller
         ]);
     }
 
+    // PATCH /orders/{id}/cancel
+    public function cancel(Request $request, string $id)
+    {
+        try {
+            $order = DB::transaction(function () use ($request, $id) {
+                $order = Order::query()
+                    ->where('user_id', $request->user()->id)
+                    ->whereKey($id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($order->status !== Order::STATUS_NEW) {
+                    throw new \RuntimeException('Можно отменить только новый заказ.');
+                }
+
+                $order->status = Order::STATUS_CANCELLED;
+
+                if ((int) $order->bonus_points_spent > 0 && $order->bonus_points_refunded_at === null) {
+                    User::query()
+                        ->whereKey($order->user_id)
+                        ->increment('bonus_points', (int) $order->bonus_points_spent);
+
+                    $order->bonus_points_refunded_at = now();
+                }
+
+                $order->save();
+
+                return $order;
+            });
+        } catch (\RuntimeException $error) {
+            return response()->json([
+                'success' => false,
+                'error' => $error->getMessage(),
+            ], 409, [], JSON_UNESCAPED_UNICODE);
+        }
+
+        $order->load(['items.dessert', 'address']);
+
+        return response()->json([
+            'success' => true,
+            'data' => new OrderResource($order),
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
     // POST /orders  (создать заказ из корзины)
     public function store(Request $request)
     {
         $data = $request->validate([
-            'address_id'    => ['nullable', 'uuid'],
-            'comment'       => ['nullable','string','max:500'],
-            'payment_mode'  => ['required', 'string', Rule::in(Order::PAYMENT_MODES)],
+            'address_id' => ['nullable', 'uuid'],
+            'comment' => ['nullable', 'string', 'max:500'],
+            'payment_mode' => ['required', 'string', Rule::in(Order::PAYMENT_MODES)],
             'delivery_mode' => ['required', 'string', Rule::in(Order::DELIVERY_MODES)],
-            'leave_at_door' => ['sometimes','boolean'],
-            'phone'         => ['required','string','max:50'],
+            'leave_at_door' => ['sometimes', 'boolean'],
+            'use_bonus_points' => ['sometimes', 'boolean'],
+            'phone' => ['required', 'string', 'max:50'],
             'custom_cake' => ['sometimes', 'array'],
             'custom_cake.design_id' => ['required_with:custom_cake', 'string', 'max:255'],
             'custom_cake.design_name' => ['required_with:custom_cake', 'string', 'max:255'],
@@ -81,9 +132,13 @@ class OrderController extends Controller
         ]);
 
         $customCake = $data['custom_cake'] ?? null;
+        if ($customCake) {
+            $this->validateCustomCakeWeight($customCake);
+        }
+
         $cart = $customCake ? null : $this->userCart($request)->load('items.dessert');
 
-        if (!$customCake && $cart->items->isEmpty()) {
+        if (! $customCake && $cart->items->isEmpty()) {
             return response()->json([
                 'success' => false,
                 'error' => 'Корзина пустая',
@@ -91,6 +146,10 @@ class OrderController extends Controller
         }
 
         return DB::transaction(function () use ($request, $data, $cart, $customCake) {
+            $user = User::query()
+                ->lockForUpdate()
+                ->findOrFail($request->user()->id);
+
             $itemsCount = 0;
             $subtotal = 0;
             $deliveryMode = $data['delivery_mode'];
@@ -101,14 +160,16 @@ class OrderController extends Controller
                 : false;
 
             $order = Order::create([
-                'user_id'     => $request->user()->id,
-                'address_id'  => $address?->id,
-                'status'      => Order::STATUS_NEW,
+                'user_id' => $user->id,
+                'address_id' => $address?->id,
+                'status' => Order::STATUS_NEW,
                 'items_count' => 0,
                 'subtotal_price' => 0,
                 'delivery_fee' => 0,
+                'bonus_points_spent' => 0,
+                'bonus_points_earned' => 0,
                 'total_price' => 0,
-                'comment'     => $data['comment'] ?? null,
+                'comment' => $data['comment'] ?? null,
                 'payment_mode' => $data['payment_mode'],
                 'delivery_mode' => $deliveryMode,
                 'leave_at_door' => $leaveAtDoor,
@@ -119,12 +180,12 @@ class OrderController extends Controller
                 $dessert = $this->createCustomCakeDessert($customCake);
                 $price = $this->customCakePrice($customCake);
 
-                    OrderItem::create([
-                        'order_id'   => $order->id,
-                        'dessert_id' => $dessert->id,
-                        'qty'        => 1,
-                        'price'      => $price,
-                        'sum'        => $price,
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'dessert_id' => $dessert->id,
+                    'qty' => 1,
+                    'price' => $price,
+                    'sum' => $price,
                 ]);
 
                 $itemsCount = 1;
@@ -134,7 +195,7 @@ class OrderController extends Controller
                     $qty = (int) $item->qty;
                     $dessert = $item->dessert;
 
-                    if (!$dessert instanceof Dessert || !$dessert->available) {
+                    if (! $dessert instanceof Dessert || ! $dessert->available || $dessert->archived) {
                         throw new HttpResponseException(response()->json([
                             'success' => false,
                             'error' => 'Один или несколько товаров в корзине больше недоступны для заказа.',
@@ -146,11 +207,11 @@ class OrderController extends Controller
                     $sum = $price * $qty;
 
                     OrderItem::create([
-                        'order_id'   => $order->id,
+                        'order_id' => $order->id,
                         'dessert_id' => $item->dessert_id,
-                        'qty'        => $qty,
-                        'price'      => $price,
-                        'sum'        => $sum,
+                        'qty' => $qty,
+                        'price' => $price,
+                        'sum' => $sum,
                     ]);
 
                     $itemsCount += $qty;
@@ -159,12 +220,25 @@ class OrderController extends Controller
             }
 
             $deliveryFee = $this->deliveryFeeFor($subtotal, $deliveryMode);
+            $bonusPointsSpent = 0;
+
+            if ((bool) ($data['use_bonus_points'] ?? false)) {
+                $bonusPointsSpent = min(
+                    (int) ($user->bonus_points ?? 0),
+                    $this->maxBonusDiscountFor($subtotal)
+                );
+            }
+
+            if ($bonusPointsSpent > 0) {
+                $user->decrement('bonus_points', $bonusPointsSpent);
+            }
 
             $order->update([
                 'items_count' => $itemsCount,
                 'subtotal_price' => $subtotal,
                 'delivery_fee' => $deliveryFee,
-                'total_price' => $subtotal + $deliveryFee,
+                'bonus_points_spent' => $bonusPointsSpent,
+                'total_price' => max(0, $subtotal - $bonusPointsSpent) + $deliveryFee,
             ]);
 
             if ($cart) {
@@ -173,13 +247,12 @@ class OrderController extends Controller
 
             $order->load(['items.dessert', 'address']);
 
-            $user = $request->user();
             $phoneTakenByAnotherUser = User::query()
                 ->where('phone', $phone)
                 ->where('id', '!=', $user->id)
                 ->exists();
 
-            if (($user->phone ?? null) !== $phone && !$phoneTakenByAnotherUser) {
+            if (($user->phone ?? null) !== $phone && ! $phoneTakenByAnotherUser) {
                 $user->forceFill(['phone' => $phone])->save();
             }
 
@@ -188,29 +261,6 @@ class OrderController extends Controller
                 'data' => new OrderResource($order),
             ], 201);
         });
-    }
-
-    // POST /orders/{id}/cancel
-    public function cancel(Request $request, string $id)
-    {
-        $order = Order::query()
-            ->where('user_id', $request->user()->id)
-            ->findOrFail($id);
-
-        if (!in_array($order->status, [Order::STATUS_NEW, Order::STATUS_PROCESSING], true)) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Этот заказ уже нельзя отменить',
-            ], 422);
-        }
-
-        $order->update(['status' => Order::STATUS_CANCELLED]);
-        $order->load(['items.dessert', 'address']);
-
-        return response()->json([
-            'success' => true,
-            'data' => new OrderResource($order),
-        ]);
     }
 
     private function normalizeMoney(mixed $value): int
@@ -226,15 +276,54 @@ class OrderController extends Controller
             ->first();
 
         if ($design) {
-            return $this->normalizeMoney($design->price);
+            return (int) round((float) $design->price * ((int) $customCake['weight_grams'] / 100));
         }
 
-        $pricePerKg = 0;
-        if (!empty($customCake['weight_grams'])) {
-            $pricePerKg = 2500;
+        $pricePer100g = 0;
+        if (! empty($customCake['weight_grams'])) {
+            $pricePer100g = 250;
         }
 
-        return (int) round($pricePerKg * ((int) $customCake['weight_grams'] / 1000));
+        return (int) round($pricePer100g * ((int) $customCake['weight_grams'] / 100));
+    }
+
+    private function validateCustomCakeWeight(array $customCake): void
+    {
+        $design = CakeDesign::query()
+            ->where('slug', $customCake['design_id'])
+            ->where('available', true)
+            ->first();
+
+        if (! $design) {
+            return;
+        }
+
+        $allowedWeights = $this->availableWeightGrams($design);
+        if (! in_array((int) $customCake['weight_grams'], $allowedWeights, true)) {
+            throw new HttpResponseException(response()->json([
+                'success' => false,
+                'error' => 'Выбранный вес торта недоступен.',
+            ], 422));
+        }
+    }
+
+    private function availableWeightGrams(CakeDesign $design): array
+    {
+        $weights = is_array($design->available_weights) ? $design->available_weights : [];
+        $grams = [];
+
+        foreach ($weights as $weight) {
+            $value = (int) ($weight['grams'] ?? 0);
+            if ($value > 0) {
+                $grams[] = $value;
+            }
+        }
+
+        if ($grams === []) {
+            $grams = array_column(self::FIXED_CUSTOM_CAKE_WEIGHTS, 'grams');
+        }
+
+        return array_values($grams);
     }
 
     private function createCustomCakeDessert(array $customCake): Dessert
@@ -246,17 +335,17 @@ class OrderController extends Controller
         $price = $this->customCakePrice($customCake);
         $photos = [];
 
-        if (!empty($customCake['preview_image_base64'])) {
-            $photos[] = 'data:image/jpeg;base64,' . $customCake['preview_image_base64'];
+        if (! empty($customCake['preview_image_base64'])) {
+            $photos[] = 'data:image/jpeg;base64,'.$customCake['preview_image_base64'];
         }
 
         $details = [
             "Дизайн: {$designName}",
-            'Надпись: ' . ($inscription !== '' ? $inscription : 'без текста'),
-            'Пожелания: ' . ($wishes !== '' ? $wishes : 'не указаны'),
+            'Надпись: '.($inscription !== '' ? $inscription : 'без текста'),
+            'Пожелания: '.($wishes !== '' ? $wishes : 'не указаны'),
             "Вес: {$weightTitle}",
-            'Начинка: ' . trim((string) ($customCake['filling'] ?? '')),
-            'Акцент: ' . trim((string) ($customCake['accent'] ?? '')),
+            'Начинка: '.trim((string) ($customCake['filling'] ?? '')),
+            'Акцент: '.trim((string) ($customCake['accent'] ?? '')),
         ];
 
         return Dessert::create([
@@ -267,6 +356,7 @@ class OrderController extends Controller
             'price' => $price,
             'photos' => $photos,
             'available' => false,
+            'archived' => true,
             'weight' => ((int) $customCake['weight_grams']) / 1000,
             'calories' => null,
             'proteins' => null,
@@ -286,13 +376,31 @@ class OrderController extends Controller
             : self::STANDARD_DELIVERY_FEE;
     }
 
+    private function maxBonusDiscountFor(int $subtotal): int
+    {
+        return (int) floor($subtotal * Order::BONUS_MAX_SPEND_RATE);
+    }
+
+    private function restoreSpentBonusPoints(Order $order): void
+    {
+        if ((int) $order->bonus_points_spent <= 0 || $order->bonus_points_refunded_at !== null) {
+            return;
+        }
+
+        User::query()
+            ->whereKey($order->user_id)
+            ->increment('bonus_points', (int) $order->bonus_points_spent);
+
+        $order->forceFill(['bonus_points_refunded_at' => now()])->save();
+    }
+
     private function resolveOrderAddress(Request $request, string $deliveryMode, ?string $addressId): ?Address
     {
         if ($deliveryMode === Order::DELIVERY_MODE_PICKUP) {
             return null;
         }
 
-        if (!$addressId) {
+        if (! $addressId) {
             throw new HttpResponseException(response()->json([
                 'success' => false,
                 'error' => 'Для доставки нужен адрес.',
@@ -303,7 +411,7 @@ class OrderController extends Controller
             ->where('user_id', $request->user()->id)
             ->find($addressId);
 
-        if (!$address) {
+        if (! $address) {
             throw new HttpResponseException(response()->json([
                 'success' => false,
                 'error' => 'Адрес доставки не найден.',

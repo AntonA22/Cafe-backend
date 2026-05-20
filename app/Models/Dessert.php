@@ -11,18 +11,19 @@ class Dessert extends Model
 
     protected $fillable = [
         'name', 'category', 'description', 'composition', 'price', 'photos',
-        'available', 'weight', 'calories', 'proteins', 'fats', 'carbohydrates'
+        'available', 'archived', 'weight', 'calories', 'proteins', 'fats', 'carbohydrates',
     ];
 
     protected $casts = [
         'photos' => 'array',        // JSON <-> массив
         'available' => 'boolean',
+        'archived' => 'boolean',
         'price' => 'float',
         'weight' => 'float',
         'proteins' => 'float',
         'fats' => 'float',
         'carbohydrates' => 'float',
-        'calories' => 'integer'
+        'calories' => 'integer',
     ];
 
     public function favoritedBy(): BelongsToMany

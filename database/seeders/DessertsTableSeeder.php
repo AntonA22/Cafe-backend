@@ -558,8 +558,9 @@ class DessertsTableSeeder extends Seeder
             if ($existing) {
                 $photos = $existing->photos;
                 $existing->fill($item);
-                $existing->photos = !empty($photos) ? $photos : $item['photos'];
+                $existing->photos = ! empty($photos) ? $photos : $item['photos'];
                 $existing->save();
+
                 continue;
             }
 
@@ -578,7 +579,7 @@ class DessertsTableSeeder extends Seeder
         ];
 
         return array_map(
-            fn(array $variant) => $this->drinkVariant($baseDrink, $baseMl, $variant['ml'], $variant['price']),
+            fn (array $variant) => $this->drinkVariant($baseDrink, $baseMl, $variant['ml'], $variant['price']),
             $variants
         );
     }

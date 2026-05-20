@@ -17,12 +17,17 @@ class OrderResource extends JsonResource
 
         return [
             'id' => $this->id,
+            'order_number' => $this->order_number,
+            'formatted_order_number' => $this->formattedOrderNumber(),
             'user_id' => $this->user_id,
             'address_id' => $this->address_id,
             'status' => $this->status,
             'items_count' => $this->items_count,
             'subtotal_price' => $this->subtotal_price,
             'delivery_fee' => $this->delivery_fee,
+            'bonus_points_spent' => (int) ($this->bonus_points_spent ?? 0),
+            'bonus_points_earned' => (int) ($this->bonus_points_earned ?? 0),
+            'bonus_points_refunded_at' => optional($this->bonus_points_refunded_at)->toJSON(),
             'total_price' => $this->total_price,
             'comment' => $this->comment,
             'delivery_mode' => $this->delivery_mode,
@@ -32,6 +37,7 @@ class OrderResource extends JsonResource
             'created_at' => optional($this->created_at)->toJSON(),
             'updated_at' => optional($this->updated_at)->toJSON(),
             'address' => $this->whenLoaded('address'),
+            'user' => $this->whenLoaded('user'),
             'items' => $items->map(function ($item) use ($proxyBaseUrl) {
                 $dessert = $item->dessert;
 

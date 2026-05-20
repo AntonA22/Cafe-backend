@@ -1,29 +1,31 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\DessertController;
-use App\Http\Controllers\CakeDesignController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\MeController;
-use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\AddressController;
-use App\Http\Controllers\FcmTokenController;
-use App\Http\Controllers\OrderController;
-
-use App\Http\Controllers\Admin\DessertAdminController;
-use App\Http\Controllers\Admin\CakeDesignAdminController;
-use App\Http\Controllers\Admin\OrderAdminController;
 use App\Http\Controllers\Admin\AddressAdminController;
+use App\Http\Controllers\Admin\CakeDesignAdminController;
+use App\Http\Controllers\Admin\DessertAdminController;
+use App\Http\Controllers\Admin\OrderAdminController;
+use App\Http\Controllers\Admin\StorageAdminController;
+use App\Http\Controllers\Api\CartController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CakeDesignController;
+use App\Http\Controllers\CustomCakePreviewController;
+use App\Http\Controllers\DessertController;
+use App\Http\Controllers\FcmTokenController;
+use App\Http\Controllers\MeController;
+use App\Http\Controllers\OrderController;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
 |
-| Здесь вы можете регистрировать веб-маршруты для вашего приложения. 
+| Здесь вы можете регистрировать веб-маршруты для вашего приложения.
 | Эти маршруты загружаются через RouteServiceProvider внутри группы "web".
 |
 */
@@ -37,9 +39,8 @@ Route::get('/cake-designs/{slug}/image', [CakeDesignController::class, 'image'])
 
 Route::get('/products/search', [DessertController::class, 'searchProducts']);
 
-
 Route::post('/auth/register', [AuthController::class, 'register']);
-Route::post('/auth/login',    [AuthController::class, 'login']);
+Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 
 $moderatorSessionMiddleware = [
@@ -48,7 +49,12 @@ $moderatorSessionMiddleware = [
     StartSession::class,
 ];
 
-Route::middleware($moderatorSessionMiddleware)
+$moderatorCsrfMiddleware = [
+    ...$moderatorSessionMiddleware,
+    ValidateCsrfToken::class,
+];
+
+Route::middleware($moderatorCsrfMiddleware)
     ->prefix('moderator')
     ->group(function () {
         Route::post('/login', [AuthController::class, 'moderatorLogin']);
@@ -62,15 +68,15 @@ Route::middleware($moderatorSessionMiddleware)
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/me/fcm-token', [FcmTokenController::class, 'update']);
-    Route::get('/me',           [MeController::class, 'show']);
-    Route::put('/me/update',           [MeController::class, 'update']);
-    Route::put('/me/password',  [MeController::class, 'changePassword']);
+    Route::get('/me', [MeController::class, 'show']);
+    Route::put('/me/update', [MeController::class, 'update']);
+    Route::put('/me/password', [MeController::class, 'changePassword']);
 
-    Route::get   ('/cart',                 [CartController::class, 'show']);      // получить корзину
-    Route::post  ('/cart/items',           [CartController::class, 'add']);       // добавить десерт
-    Route::patch ('/cart/items/{dessert}', [CartController::class, 'setQty']);    // изменить qty
+    Route::get('/cart', [CartController::class, 'show']);      // получить корзину
+    Route::post('/cart/items', [CartController::class, 'add']);       // добавить десерт
+    Route::patch('/cart/items/{dessert}', [CartController::class, 'setQty']);    // изменить qty
     Route::delete('/cart/items/{dessert}', [CartController::class, 'remove']);    // удалить десерт
-    Route::delete('/cart',                 [CartController::class, 'clear']);     // очистить корзину
+    Route::delete('/cart', [CartController::class, 'clear']);     // очистить корзину
 
     Route::get('/favorites', [DessertController::class, 'favoriteProducts']);
     Route::get('/favorites/search', [DessertController::class, 'searchFavoriteProducts']);
@@ -83,38 +89,37 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/addresses/{id}', [AddressController::class, 'destroy']);
     Route::post('/addresses/{id}/default', [AddressController::class, 'setDefault']);
 
-    Route::get('/orders',            [OrderController::class, 'index']);   // список моих заказов
-    Route::get('/orders/{id}',       [OrderController::class, 'show']);    // один заказ
-    Route::post('/orders',           [OrderController::class, 'store']);   // создать заказ из корзины
-    Route::post('/orders/{id}/cancel',[OrderController::class, 'cancel']); // отменить (если можно)
+    Route::get('/orders', [OrderController::class, 'index']);   // список моих заказов
+    Route::post('/orders', [OrderController::class, 'store']);   // создать заказ из корзины
+    Route::patch('/orders/{id}/cancel', [OrderController::class, 'cancel']); // отменить новый заказ
+    Route::get('/orders/{id}', [OrderController::class, 'show']);    // один заказ
+    Route::post('/custom-cake/preview', [CustomCakePreviewController::class, 'store']);
 
 });
 
-Route::middleware([...$moderatorSessionMiddleware, 'auth:sanctum', 'admin'])
-  ->prefix('admin')
-  ->group(function () {
-      Route::post('/products', [DessertAdminController::class, 'store']);       // создать продукт
-      Route::get('/products/{id}', [DessertAdminController::class, 'show']);     // получить продукт
-      Route::put('/products/{id}', [DessertAdminController::class, 'update']);   // обновить поля
-      Route::delete('/products/{id}', [DessertAdminController::class, 'destroy']); // удалить продукт
+Route::middleware([...$moderatorCsrfMiddleware, 'auth:sanctum', 'admin'])
+    ->prefix('admin')
+    ->group(function () {
+        Route::get('/products', [DessertAdminController::class, 'index']);        // все продукты, включая скрытые
+        Route::post('/products', [DessertAdminController::class, 'store']);       // создать продукт
+        Route::get('/products/{id}', [DessertAdminController::class, 'show']);     // получить продукт
+        Route::put('/products/{id}', [DessertAdminController::class, 'update']);   // обновить поля
+        Route::delete('/products/{id}', [DessertAdminController::class, 'destroy']); // удалить продукт
 
-      // фото лучше отдельным эндпоинтом
-      Route::post('/products/{id}/photo', [DessertAdminController::class, 'updatePhoto']);
+        Route::get('/cake-designs', [CakeDesignAdminController::class, 'index']);
+        Route::post('/cake-designs', [CakeDesignAdminController::class, 'store']);
+        Route::get('/cake-designs/{design}', [CakeDesignAdminController::class, 'show']);
+        Route::put('/cake-designs/{design}', [CakeDesignAdminController::class, 'update']);
+        Route::patch('/cake-designs/{design}', [CakeDesignAdminController::class, 'update']);
+        Route::delete('/cake-designs/{design}', [CakeDesignAdminController::class, 'destroy']);
+        Route::delete('/storage/photo', [StorageAdminController::class, 'destroyPhoto']);
 
-      Route::get('/cake-designs', [CakeDesignAdminController::class, 'index']);
-      Route::post('/cake-designs', [CakeDesignAdminController::class, 'store']);
-      Route::get('/cake-designs/{design}', [CakeDesignAdminController::class, 'show']);
-      Route::put('/cake-designs/{design}', [CakeDesignAdminController::class, 'update']);
-      Route::patch('/cake-designs/{design}', [CakeDesignAdminController::class, 'update']);
-      Route::delete('/cake-designs/{design}', [CakeDesignAdminController::class, 'destroy']);
+        Route::get('/addresses/{id}', [AddressAdminController::class, 'show']);
 
-      Route::get('/addresses/{id}', [AddressAdminController::class, 'show']);
-
-      Route::get('/orders',            [OrderAdminController::class, 'index']);  // все заказы (с фильтрами)
-      Route::get('/orders/{id}',       [OrderAdminController::class, 'show']);   // один заказ
-      Route::patch('/orders/{id}/status', [OrderAdminController::class, 'setStatus']); // смена статуса
-  });
-
+        Route::get('/orders', [OrderAdminController::class, 'index']);  // все заказы (с фильтрами)
+        Route::get('/orders/{id}', [OrderAdminController::class, 'show']);   // один заказ
+        Route::patch('/orders/{id}/status', [OrderAdminController::class, 'setStatus']); // смена статуса
+    });
 
 // Пример дополнительных маршрутов (по желанию)
 // Route::get('/', function () {

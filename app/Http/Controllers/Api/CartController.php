@@ -31,7 +31,7 @@ class CartController extends Controller
         $cart = $this->userCart($request);
 
         $dessert = Dessert::findOrFail($request->dessert_id);
-        if (!$dessert->available) {
+        if (! $dessert->available || $dessert->archived) {
             return response()->json([
                 'success' => false,
                 'error' => 'Этот товар сейчас недоступен для заказа.',
@@ -61,7 +61,7 @@ class CartController extends Controller
     {
         $cart = $this->userCart($request);
 
-        if (!$dessert->available && $request->qty > 0) {
+        if ((! $dessert->available || $dessert->archived) && $request->qty > 0) {
             return response()->json([
                 'success' => false,
                 'error' => 'Этот товар сейчас недоступен для заказа.',
@@ -72,7 +72,7 @@ class CartController extends Controller
             ->where('dessert_id', $dessert->id)
             ->first();
 
-        if (!$item) {
+        if (! $item) {
             if ($request->qty <= 0) {
                 return new CartResource($cart->load('items.dessert'));
             }

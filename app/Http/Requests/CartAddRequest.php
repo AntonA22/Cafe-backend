@@ -6,7 +6,10 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class CartAddRequest extends FormRequest
 {
-    public function authorize(): bool { return true; }
+    public function authorize(): bool
+    {
+        return true;
+    }
 
     public function rules(): array
     {
@@ -18,7 +21,7 @@ class CartAddRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if (!$this->has('qty')) {
+        if (! $this->has('qty')) {
             $this->merge(['qty' => 1]);
         }
     }
