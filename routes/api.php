@@ -76,6 +76,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/cart/items', [CartController::class, 'add']);       // добавить десерт
     Route::patch('/cart/items/{dessert}', [CartController::class, 'setQty']);    // изменить qty
     Route::delete('/cart/items/{dessert}', [CartController::class, 'remove']);    // удалить десерт
+    Route::post('/cart/custom-cakes', [CartController::class, 'addCustomCake']);
+    Route::patch('/cart/custom-cakes/{item}', [CartController::class, 'setCustomCakeQty']);
+    Route::delete('/cart/custom-cakes/{item}', [CartController::class, 'removeCustomCake']);
     Route::delete('/cart', [CartController::class, 'clear']);     // очистить корзину
 
     Route::get('/favorites', [DessertController::class, 'favoriteProducts']);

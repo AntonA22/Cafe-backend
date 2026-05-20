@@ -136,9 +136,9 @@ class OrderController extends Controller
             $this->validateCustomCakeWeight($customCake);
         }
 
-        $cart = $customCake ? null : $this->userCart($request)->load('items.dessert');
+        $cart = $customCake ? null : $this->userCart($request)->load(['items.dessert', 'customCakeItems']);
 
-        if (! $customCake && $cart->items->isEmpty()) {
+        if (! $customCake && $cart->items->isEmpty() && $cart->customCakeItems->isEmpty()) {
             return response()->json([
                 'success' => false,
                 'error' => 'Корзина пустая',
@@ -217,6 +217,25 @@ class OrderController extends Controller
                     $itemsCount += $qty;
                     $subtotal += $sum;
                 }
+
+                foreach ($cart->customCakeItems as $item) {
+                    $qty = (int) $item->qty;
+                    $payload = is_array($item->payload) ? $item->payload : [];
+                    $dessert = $this->createCustomCakeDessert($payload);
+                    $price = $this->normalizeMoney($item->price);
+                    $sum = $price * $qty;
+
+                    OrderItem::create([
+                        'order_id' => $order->id,
+                        'dessert_id' => $dessert->id,
+                        'qty' => $qty,
+                        'price' => $price,
+                        'sum' => $sum,
+                    ]);
+
+                    $itemsCount += $qty;
+                    $subtotal += $sum;
+                }
             }
 
             $deliveryFee = $this->deliveryFeeFor($subtotal, $deliveryMode);
@@ -243,6 +262,7 @@ class OrderController extends Controller
 
             if ($cart) {
                 $cart->items()->delete();
+                $cart->customCakeItems()->delete();
             }
 
             $order->load(['items.dessert', 'address']);
