@@ -38,7 +38,7 @@ return [
     'aitunnel' => [
         'key' => env('AITUNNEL_API_KEY'),
         'base_url' => env('AITUNNEL_BASE_URL', 'https://api.aitunnel.ru/v1'),
-        'image_model' => env('AITUNNEL_IMAGE_MODEL', 'gemini-3.1-flash-image-preview'),
+        'image_model' => env('AITUNNEL_IMAGE_MODEL', 'seedream-4.5'),
     ],
 
     'supabase' => [

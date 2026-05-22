@@ -11,6 +11,8 @@ class CustomCakePreviewController extends Controller
 {
     public function store(Request $request)
     {
+        @set_time_limit(240);
+
         $data = $request->validate([
             'prompt' => ['required', 'string', 'max:32000'],
             'image_base64' => ['required', 'string'],
@@ -38,7 +40,8 @@ class CustomCakePreviewController extends Controller
         $model = (string) config('services.aitunnel.image_model');
 
         try {
-            $response = Http::timeout(180)
+            $response = Http::connectTimeout(20)
+                ->timeout(180)
                 ->withToken($apiKey)
                 ->attach('image', $imageData, 'cake-preview.png', [
                     'Content-Type' => $mimeType,
